@@ -1,0 +1,514 @@
+@import "tailwindcss";
+
+/* ========================================
+   TRENCHES & DRAGONS - Global Styles
+   Dark Fantasy Game Interface
+   ======================================== */
+
+:root {
+  /* Core palette */
+  --abyss: #0a0a0f;
+  --abyss-light: #12121a;
+  --blood: #dc2626;
+  --blood-dark: #8b0000;
+  --gold: #b8860b;
+  --gold-light: #d4a574;
+  --gold-pale: #e8c992;
+  --mystic: #4a1c6b;
+  --parchment: #f4e4bc;
+  --parchment-dark: #c4b89a;
+  
+  /* Trench colors */
+  --mud: #3d3226;
+  --rust: #8b4513;
+  --metal: #4a4a52;
+  --stone: #5c5c5c;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--abyss);
+  color: var(--parchment);
+  font-family: var(--font-crimson), Georgia, serif;
+}
+
+/* Selection */
+::selection {
+  background: var(--blood-dark);
+  color: var(--parchment);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--abyss-light);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--mud);
+  border-radius: 4px;
+  border: 1px solid var(--abyss);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--rust);
+}
+
+/* ========================================
+   TEXTURE UTILITIES
+   ======================================== */
+
+.texture-parchment {
+  background: 
+    linear-gradient(135deg, rgba(244, 228, 188, 0.05) 25%, transparent 25%),
+    linear-gradient(225deg, rgba(244, 228, 188, 0.05) 25%, transparent 25%),
+    linear-gradient(45deg, rgba(244, 228, 188, 0.05) 25%, transparent 25%),
+    linear-gradient(315deg, rgba(244, 228, 188, 0.05) 25%, transparent 25%),
+    linear-gradient(to bottom, rgba(61, 50, 38, 0.1), transparent 50%, rgba(61, 50, 38, 0.15));
+  background-size: 20px 20px, 20px 20px, 20px 20px, 20px 20px, 100% 100%;
+}
+
+.texture-leather {
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(139, 69, 19, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(0, 0, 0, 0.2) 0%, transparent 50%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.3) 0%, transparent 30%, transparent 70%, rgba(0, 0, 0, 0.3) 100%);
+}
+
+.texture-metal {
+  background: 
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(135deg, rgba(74, 74, 82, 0.3) 0%, transparent 50%),
+    linear-gradient(315deg, rgba(0, 0, 0, 0.3) 0%, transparent 50%);
+  background-size: 4px 4px, 4px 4px, 100% 100%, 100% 100%;
+}
+
+.texture-stone {
+  background: 
+    radial-gradient(ellipse at 30% 30%, rgba(92, 92, 92, 0.4) 0%, transparent 40%),
+    radial-gradient(ellipse at 70% 70%, rgba(0, 0, 0, 0.4) 0%, transparent 40%),
+    radial-gradient(ellipse at 50% 50%, rgba(61, 50, 38, 0.2) 0%, transparent 60%);
+}
+
+/* ========================================
+   TORCH & FIRE EFFECTS
+   ======================================== */
+
+.torch-glow {
+  position: relative;
+}
+
+.torch-glow::after {
+  content: '';
+  position: absolute;
+  inset: -20px;
+  background: radial-gradient(ellipse at center, rgba(184, 134, 11, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+  animation: torchFlicker 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes torchFlicker {
+  0% { opacity: 0.7; transform: scale(0.98); }
+  25% { opacity: 0.9; transform: scale(1.01); }
+  50% { opacity: 0.8; transform: scale(0.99); }
+  75% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0.85; transform: scale(1); }
+}
+
+/* Ember glow for buttons */
+.ember-glow {
+  position: relative;
+  overflow: visible;
+}
+
+.ember-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, var(--blood-dark), var(--blood), var(--gold));
+  border-radius: inherit;
+  opacity: 0;
+  z-index: -1;
+  transition: opacity 0.3s ease;
+  filter: blur(8px);
+}
+
+.ember-glow:hover::before {
+  opacity: 0.6;
+  animation: emberPulse 2s ease-in-out infinite;
+}
+
+@keyframes emberPulse {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* ========================================
+   FOG EFFECTS
+   ======================================== */
+
+.fog-layer {
+  position: absolute;
+  inset: 0;
+  background: 
+    linear-gradient(90deg, 
+      transparent 0%, 
+      rgba(244, 228, 188, 0.03) 20%, 
+      rgba(244, 228, 188, 0.05) 50%, 
+      rgba(244, 228, 188, 0.03) 80%, 
+      transparent 100%
+    );
+  animation: fogDrift 25s linear infinite;
+  pointer-events: none;
+}
+
+.fog-layer-slow {
+  animation: fogDrift 40s linear infinite reverse;
+  opacity: 0.5;
+}
+
+@keyframes fogDrift {
+  0% { transform: translateX(-100%) skewX(-5deg); }
+  100% { transform: translateX(100%) skewX(-5deg); }
+}
+
+/* ========================================
+   DUST PARTICLES
+   ======================================== */
+
+.dust-particle {
+  position: absolute;
+  width: 2px;
+  height: 2px;
+  background: var(--gold-pale);
+  border-radius: 50%;
+  opacity: 0.3;
+  animation: dustFloat 8s ease-in-out infinite;
+}
+
+@keyframes dustFloat {
+  0%, 100% { 
+    transform: translateY(0) translateX(0) rotate(0deg); 
+    opacity: 0.2;
+  }
+  25% { 
+    transform: translateY(-30px) translateX(15px) rotate(90deg); 
+    opacity: 0.4;
+  }
+  50% { 
+    transform: translateY(-20px) translateX(-10px) rotate(180deg); 
+    opacity: 0.3;
+  }
+  75% { 
+    transform: translateY(-40px) translateX(20px) rotate(270deg); 
+    opacity: 0.5;
+  }
+}
+
+/* ========================================
+   BORDERS & FRAMES
+   ======================================== */
+
+.border-weathered {
+  border: 2px solid var(--mud);
+  border-radius: 2px 4px 3px 5px;
+  box-shadow: 
+    inset 0 1px 0 rgba(244, 228, 188, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.border-ornate {
+  border: 3px solid var(--gold);
+  border-image: linear-gradient(
+    135deg,
+    var(--gold-pale) 0%,
+    var(--gold) 25%,
+    var(--gold-dark, #8b6914) 50%,
+    var(--gold) 75%,
+    var(--gold-pale) 100%
+  ) 1;
+}
+
+.border-blood {
+  border: 2px solid var(--blood-dark);
+  box-shadow: 
+    inset 0 0 10px rgba(139, 0, 0, 0.3),
+    0 0 15px rgba(220, 38, 38, 0.2);
+}
+
+/* ========================================
+   BUTTON STYLES
+   ======================================== */
+
+.btn-base {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-cinzel), serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.btn-base::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.btn-base:active {
+  transform: scale(0.98) translateY(1px);
+}
+
+.btn-base:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ========================================
+   PANEL STYLES
+   ======================================== */
+
+.panel-parchment {
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+  color: var(--abyss);
+  border: 3px solid var(--mud);
+  border-radius: 2px 4px 3px 5px;
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.3),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+    0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.panel-leather {
+  background: linear-gradient(180deg, #4a3728 0%, #3d3226 50%, #2d241c 100%);
+  border: 2px solid #5c4a3a;
+  border-radius: 4px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.3),
+    0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.panel-metal {
+  background: linear-gradient(180deg, #5c5c5c 0%, #4a4a52 50%, #3a3a42 100%);
+  border: 2px solid #6a6a72;
+  border-radius: 2px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3),
+    0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* ========================================
+   TYPEWRITER EFFECT
+   ======================================== */
+
+.typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid var(--gold);
+  animation: 
+    typewriter 3s steps(50) forwards,
+    blink 0.7s step-end infinite;
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes blink {
+  50% { border-color: transparent; }
+}
+
+/* ========================================
+   LIQUID FILL (for health vials)
+   ======================================== */
+
+.liquid-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-fill {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(180deg, var(--blood) 0%, var(--blood-dark) 100%);
+  transition: height 0.5s ease-out;
+}
+
+.liquid-fill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3) 0%, transparent 100%);
+  animation: liquidWobble 2s ease-in-out infinite;
+}
+
+@keyframes liquidWobble {
+  0%, 100% { transform: scaleY(1) translateY(0); }
+  50% { transform: scaleY(1.2) translateY(-1px); }
+}
+
+/* ========================================
+   SHAKE ANIMATION
+   ======================================== */
+
+.shake {
+  animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10% { transform: translateX(-5px) rotate(-1deg); }
+  20% { transform: translateX(5px) rotate(1deg); }
+  30% { transform: translateX(-5px) rotate(-1deg); }
+  40% { transform: translateX(5px) rotate(1deg); }
+  50% { transform: translateX(-3px); }
+  60% { transform: translateX(3px); }
+  70% { transform: translateX(-2px); }
+  80% { transform: translateX(2px); }
+  90% { transform: translateX(-1px); }
+}
+
+/* ========================================
+   SCREEN CRACK OVERLAY
+   ======================================== */
+
+.screen-crack {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  background: 
+    linear-gradient(45deg, transparent 45%, rgba(0, 0, 0, 0.1) 50%, transparent 55%),
+    linear-gradient(-45deg, transparent 45%, rgba(0, 0, 0, 0.1) 50%, transparent 55%),
+    linear-gradient(135deg, transparent 48%, rgba(139, 0, 0, 0.05) 50%, transparent 52%);
+  animation: crackAppear 0.5s ease-out forwards;
+}
+
+@keyframes crackAppear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ========================================
+   GOLDEN RAYS (Victory)
+   ======================================== */
+
+.golden-rays {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(ellipse at center top, rgba(184, 134, 11, 0.3) 0%, transparent 50%),
+    conic-gradient(from 0deg at 50% 0%, 
+      transparent 0deg, 
+      rgba(184, 134, 11, 0.1) 10deg, 
+      transparent 20deg,
+      transparent 30deg,
+      rgba(184, 134, 11, 0.1) 40deg,
+      transparent 50deg
+    );
+  animation: raysPulse 3s ease-in-out infinite;
+}
+
+@keyframes raysPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* ========================================
+   3D DOOR TRANSFORM
+   ======================================== */
+
+.door-3d {
+  perspective: 1000px;
+  transform-style: preserve-3d;
+}
+
+.door-panel {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: left center;
+  transform-style: preserve-3d;
+}
+
+.door-3d:hover .door-panel {
+  transform: rotateY(-15deg);
+}
+
+/* ========================================
+   DICE 3D
+   ======================================== */
+
+.dice-3d {
+  perspective: 600px;
+}
+
+.dice-cube {
+  width: 60px;
+  height: 60px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.1s linear;
+}
+
+.dice-face {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-cinzel);
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--abyss);
+  background: linear-gradient(135deg, var(--parchment) 0%, var(--parchment-dark) 100%);
+  border: 2px solid var(--mud);
+  backface-visibility: hidden;
+}
+
+.dice-face-1 { transform: translateZ(30px); }
+.dice-face-2 { transform: rotateY(180deg) translateZ(30px); }
+.dice-face-3 { transform: rotateY(-90deg) translateZ(30px); }
+.dice-face-4 { transform: rotateY(90deg) translateZ(30px); }
+.dice-face-5 { transform: rotateX(90deg) translateZ(30px); }
+.dice-face-6 { transform: rotateX(-90deg) translateZ(30px); }
+
+/* ========================================
+   RESPONSIVE UTILITIES
+   ======================================== */
+
+@media (max-width: 768px) {
+  .btn-base {
+    padding: 0.625rem 1.25rem;
+    font-size: 0.875rem;
+  }
+}
