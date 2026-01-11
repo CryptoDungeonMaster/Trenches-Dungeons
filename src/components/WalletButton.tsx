@@ -8,6 +8,6 @@ const WalletMultiButton = dynamic(
   { ssr: false, loading: () => <button className="btn btn-primary">Connect Wallet</button> }
 );
 
-export function WalletButton() {
+export default function WalletButton() {
   return <WalletMultiButton />;
 }

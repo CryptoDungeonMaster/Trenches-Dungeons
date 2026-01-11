@@ -14,8 +14,9 @@ import {
 // Import wallet adapter styles
 import "@solana/wallet-adapter-react-ui/styles.css";
 
+// Using QuickNode for more reliable RPC
 const RPC_ENDPOINT =
-  process.env.NEXT_PUBLIC_RPC_ENDPOINT || "https://mainnet.helius-rpc.com/?api-key=7784bded-75ad-4ea5-89dd-41962df75552";
+  process.env.NEXT_PUBLIC_RPC_ENDPOINT || "https://small-twilight-sponge.solana-mainnet.quiknode.pro/71bdb31dd3e965467b1393cebaaebe69d481dbeb/";
 
 interface WalletProviderProps {
   children: ReactNode;
