@@ -27,6 +27,14 @@ export const supabase = createSupabaseClient();
 // Admin client for server-side operations (bypasses RLS)
 export const supabaseAdmin = createSupabaseAdminClient();
 
+// Function to get admin client (for API routes that need fresh instances)
+export function createServiceRoleSupabaseClient(): SupabaseClient {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error("Supabase admin credentials not configured");
+  }
+  return createClient(supabaseUrl, supabaseServiceKey);
+}
+
 // Types for our tables
 export interface Session {
   id: string;

@@ -1,4 +1,5 @@
 import { supabaseAdmin, Session, Claim, Setting } from "./supabase";
+import { TABLES } from "./db-tables";
 
 // Helper to check if Supabase is configured
 function getSupabase() {
@@ -7,14 +8,6 @@ function getSupabase() {
   }
   return supabaseAdmin;
 }
-
-// Table names with TD prefix to avoid conflicts with other projects
-const TABLES = {
-  sessions: "td_sessions",
-  claims: "td_claims",
-  settings: "td_settings",
-  usedSignatures: "td_used_signatures",
-} as const;
 
 /**
  * Initialize database tables in Supabase

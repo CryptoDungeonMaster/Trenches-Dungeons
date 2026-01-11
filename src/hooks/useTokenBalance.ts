@@ -2,7 +2,6 @@
 
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { useState, useEffect, useCallback } from "react";
-import { getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
 import { PublicKey } from "@solana/web3.js";
 
 const TOKEN_MINT = new PublicKey(
@@ -38,34 +37,36 @@ export function useTokenBalance(): TokenBalance {
     setError(null);
 
     try {
-      // Get the ATA for this wallet
-      const ata = await getAssociatedTokenAddress(TOKEN_MINT, publicKey);
+      // Use getParsedTokenAccountsByOwner with mint filter - most reliable method
+      const accounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+        mint: TOKEN_MINT,
+      });
 
-      try {
-        // Try to get the token account
-        const account = await getAccount(connection, ata);
-        const amount = account.amount;
-
-        // Get mint info for decimals
-        const mintInfo = await connection.getParsedAccountInfo(TOKEN_MINT);
-        const mintData = mintInfo.value?.data;
+      if (accounts.value.length > 0) {
+        const tokenAccount = accounts.value[0];
+        const info = tokenAccount.account.data.parsed.info;
+        const tokenAmount = info.tokenAmount;
         
-        let tokenDecimals = 6; // Default
-        if (mintData && "parsed" in mintData) {
-          tokenDecimals = mintData.parsed.info.decimals;
-        }
+        const tokenDecimals = tokenAmount.decimals || 6;
+        const amount = BigInt(tokenAmount.amount);
+        const uiAmount = tokenAmount.uiAmount || 0;
 
+        console.log("[TokenBalance] Found balance:", uiAmount, "TND");
+        
         setDecimals(tokenDecimals);
         setRawBalance(amount);
-        setBalance(Number(amount) / Math.pow(10, tokenDecimals));
-      } catch {
-        // Token account doesn't exist - balance is 0
+        setBalance(uiAmount);
+      } else {
+        // No token account found - balance is 0
+        console.log("[TokenBalance] No token account found for this mint");
         setBalance(0);
         setRawBalance(BigInt(0));
       }
     } catch (err) {
-      console.error("Error fetching token balance:", err);
+      console.error("[TokenBalance] Error:", err);
       setError(err instanceof Error ? err.message : "Failed to fetch balance");
+      setBalance(0);
+      setRawBalance(BigInt(0));
     } finally {
       setLoading(false);
     }
@@ -74,8 +75,8 @@ export function useTokenBalance(): TokenBalance {
   useEffect(() => {
     fetchBalance();
 
-    // Set up polling every 30 seconds
-    const interval = setInterval(fetchBalance, 30000);
+    // Poll every 15 seconds
+    const interval = setInterval(fetchBalance, 15000);
     return () => clearInterval(interval);
   }, [fetchBalance]);
 
