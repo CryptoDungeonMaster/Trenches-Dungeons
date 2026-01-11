@@ -1,76 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
+import Image from "next/image";
+import dynamic from "next/dynamic";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey, Transaction } from "@solana/web3.js";
+import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { cn } from "@/lib/utils";
+import { useTokenBalance } from "@/hooks/useTokenBalance";
+import { hasFreeEntry } from "@/lib/admins";
 
-// ============================================
-// CINEMATIC BACKGROUND SCENE
-// ============================================
-function CinematicBackground() {
-  return (
-    <div className="fixed inset-0 overflow-hidden">
-      {/* Base gradient */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#030305] via-[#0a0a12] to-[#050508]" />
-      
-      {/* Mountain silhouettes */}
-      <div className="absolute bottom-0 left-0 right-0 h-[30vh]">
-        <svg viewBox="0 0 1440 300" className="absolute bottom-0 w-full h-full" preserveAspectRatio="none">
-          <path d="M0,300 L0,200 Q200,120 400,180 T800,140 T1200,200 L1440,160 L1440,300 Z" fill="#1a1a2e" fillOpacity="0.5" />
-          <path d="M0,300 L0,240 Q300,180 500,220 T900,190 T1300,240 L1440,210 L1440,300 Z" fill="#12121c" fillOpacity="0.6" />
-        </svg>
-      </div>
+const WalletButton = dynamic(() => import("@/components/WalletButton"), { ssr: false });
 
-      {/* Distant fires */}
-      <div className="absolute bottom-[20vh] left-[10%] w-2 h-6">
-        <motion.div animate={{ opacity: [0.3, 0.8, 0.4] }} transition={{ duration: 2, repeat: Infinity }}
-          className="w-full h-full bg-gradient-to-t from-orange-600 to-transparent rounded-full blur-sm" />
-      </div>
-      <div className="absolute bottom-[22vh] right-[15%] w-2 h-8">
-        <motion.div animate={{ opacity: [0.4, 0.9, 0.5] }} transition={{ duration: 2.5, repeat: Infinity, delay: 0.5 }}
-          className="w-full h-full bg-gradient-to-t from-orange-700 to-transparent rounded-full blur-sm" />
-      </div>
-
-      {/* Fog layers */}
-      <motion.div
-        animate={{ x: ["-50%", "50%"] }}
-        transition={{ duration: 40, repeat: Infinity, ease: "linear", repeatType: "reverse" }}
-        className="absolute inset-0 opacity-[0.06]"
-        style={{ background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%)" }}
-      />
-
-      {/* Ground fog */}
-      <div className="absolute bottom-0 left-0 right-0 h-[20vh] bg-gradient-to-t from-[#0a0a0f]/90 to-transparent" />
-
-      {/* Vignette */}
-      <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.6) 100%)" }} />
-    </div>
-  );
-}
+const TOKEN_MINT = new PublicKey(
+  process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump"
+);
+const TREASURY_WALLET = new PublicKey(
+  process.env.NEXT_PUBLIC_TREASURY_WALLET || "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA"
+);
+const ENTRY_FEE = 100;
 
 // ============================================
 // EMBER PARTICLES
 // ============================================
 function EmberParticles() {
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; delay: number; duration: number; size: number }>>([]);
+  const [embers, setEmbers] = useState<Array<{ id: number; x: number; delay: number; size: number }>>([]);
 
   useEffect(() => {
-    setParticles(Array.from({ length: 25 }, (_, i) => ({
-      id: i, x: Math.random() * 100, delay: Math.random() * 8, duration: 10 + Math.random() * 10, size: 1 + Math.random() * 2,
-    })));
+    setEmbers(
+      Array.from({ length: 20 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        delay: Math.random() * 5,
+        size: 2 + Math.random() * 3,
+      }))
+    );
   }, []);
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none">
-      {particles.map((p) => (
-        <motion.div key={p.id}
-          initial={{ x: `${p.x}%`, y: "100%", opacity: 0 }}
-          animate={{ y: "-10%", opacity: [0, 0.7, 0] }}
-          transition={{ duration: p.duration, delay: p.delay, repeat: Infinity, ease: "easeOut" }}
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {embers.map((e) => (
+        <motion.div
+          key={e.id}
+          initial={{ x: `${e.x}%`, y: "105%", opacity: 0 }}
+          animate={{ y: "-5%", opacity: [0, 0.7, 0] }}
+          transition={{ duration: 6 + Math.random() * 4, delay: e.delay, repeat: Infinity }}
           className="absolute rounded-full"
-          style={{ width: p.size, height: p.size, background: `radial-gradient(circle, #fbbf24 0%, #ea580c 100%)`, boxShadow: `0 0 ${p.size * 2}px #ea580c` }}
+          style={{
+            width: e.size,
+            height: e.size,
+            background: "var(--ember)",
+            boxShadow: `0 0 ${e.size * 2}px var(--ember)`,
+          }}
         />
       ))}
     </div>
@@ -78,179 +61,174 @@ function EmberParticles() {
 }
 
 // ============================================
-// HEADER
+// DUNGEON GATE
 // ============================================
-function Header({ isConnected, onConnect, balance }: { isConnected: boolean; onConnect: () => void; balance: number }) {
-  return (
-    <header className="fixed top-0 left-0 right-0 z-50 p-4 sm:p-6">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-2xl">⚔️</span>
-          <span className="font-cinzel text-lg text-gold hidden sm:block">T&D</span>
-        </div>
-
-        <div className="flex items-center gap-3">
-          {isConnected && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-abyss/80 backdrop-blur border border-gold/20 rounded-lg">
-              <span className="text-gold/60 text-sm">TND</span>
-              <span className="text-gold font-cinzel font-bold">{balance.toLocaleString()}</span>
-            </div>
-          )}
-          
-          <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={onConnect}
-            className={`px-4 py-2 rounded-lg font-cinzel text-sm uppercase tracking-wide transition-all ${
-              isConnected 
-                ? "bg-green-900/70 text-green-200 border border-green-500/30" 
-                : "bg-gold/15 text-gold border border-gold/30 hover:border-gold/50"
-            }`}>
-            {isConnected ? "● Connected" : "Connect Wallet"}
-          </motion.button>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-// ============================================
-// DRAMATIC GATEWAY
-// ============================================
-function DramaticGateway({ onEnter, disabled }: { onEnter: () => void; disabled: boolean }) {
+function DungeonGate({ canEnter, isProcessing, onClick }: {
+  canEnter: boolean;
+  isProcessing: boolean;
+  onClick: () => void;
+}) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, delay: 0.5 }}
+      transition={{ delay: 0.5 }}
+      className="relative cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      className="relative"
+      onClick={canEnter && !isProcessing ? onClick : undefined}
     >
-      {/* Glow effect */}
+      {/* Gate glow */}
       <motion.div
-        animate={{ opacity: isHovered ? 0.4 : 0.15, scale: isHovered ? 1.05 : 1 }}
-        className="absolute inset-0 bg-gold/20 rounded-t-[140px] blur-2xl -z-10"
+        animate={{ opacity: isHovered && canEnter ? 0.4 : 0.15, scale: isHovered && canEnter ? 1.1 : 1 }}
+        className="absolute inset-0 bg-gold1 rounded-t-[80px] blur-3xl -z-10"
       />
 
-      {/* Gateway */}
-      <div 
-        className="relative w-56 sm:w-72 h-80 sm:h-96 cursor-pointer"
-        style={{ perspective: "1200px" }}
-        onClick={() => !disabled && onEnter()}
-      >
+      {/* Gate frame */}
+      <div className="relative w-48 h-64 md:w-56 md:h-72">
         {/* Stone arch */}
-        <div className="absolute inset-0 rounded-t-[120px] bg-gradient-to-b from-[#3a3a42] via-[#2a2a32] to-[#1a1a22] border-2 border-[#4a4a52] shadow-2xl overflow-hidden">
-          {/* Arch carvings */}
-          <svg className="absolute top-3 left-1/2 -translate-x-1/2 w-32 h-16 text-gold/20" viewBox="0 0 150 60">
-            <path d="M75 5 L100 25 L75 45 L50 25 Z" fill="none" stroke="currentColor" strokeWidth="1" />
-            <circle cx="75" cy="25" r="6" fill="none" stroke="currentColor" strokeWidth="0.8" />
-          </svg>
+        <div className="absolute inset-0 rounded-t-[80px] bg-gradient-to-b from-[#3a3a3f] via-[#2a2a2f] to-[#1a1a1f] border-2 border-[#4a4a4f]">
+          {/* Inner dark */}
+          <div className="absolute inset-3 top-4 rounded-t-[70px] bg-gradient-to-b from-bg1 to-bg0 overflow-hidden">
+            {/* Door panels */}
+            <motion.div
+              animate={{ x: isHovered && canEnter ? "-15%" : 0 }}
+              transition={{ type: "spring", stiffness: 100 }}
+              className="absolute inset-0 left-0 w-1/2 bg-gradient-to-r from-[#3d3020] to-[#2d2518] border-r border-[#1a1510]"
+            >
+              {[20, 40, 60, 80].map((top) => (
+                <div key={top} className="absolute left-0 right-0 h-[1px] bg-black/20" style={{ top: `${top}%` }} />
+              ))}
+              <div className="absolute top-[30%] left-0 right-0 h-3 bg-gradient-to-b from-[#5a5a5f] to-[#3a3a3f] border-y border-[#2a2a2f]" />
+              <div className="absolute top-[70%] left-0 right-0 h-3 bg-gradient-to-b from-[#5a5a5f] to-[#3a3a3f] border-y border-[#2a2a2f]" />
+            </motion.div>
+            <motion.div
+              animate={{ x: isHovered && canEnter ? "15%" : 0 }}
+              transition={{ type: "spring", stiffness: 100 }}
+              className="absolute inset-0 right-0 left-1/2 bg-gradient-to-l from-[#3d3020] to-[#2d2518] border-l border-[#1a1510]"
+            >
+              {[20, 40, 60, 80].map((top) => (
+                <div key={top} className="absolute left-0 right-0 h-[1px] bg-black/20" style={{ top: `${top}%` }} />
+              ))}
+              <div className="absolute top-[30%] left-0 right-0 h-3 bg-gradient-to-b from-[#5a5a5f] to-[#3a3a3f] border-y border-[#2a2a2f]" />
+              <div className="absolute top-[70%] left-0 right-0 h-3 bg-gradient-to-b from-[#5a5a5f] to-[#3a3a3f] border-y border-[#2a2a2f]" />
+            </motion.div>
+
+            <AnimatePresence>
+              {isHovered && canEnter && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-gradient-to-t from-gold1/30 via-gold1/10 to-transparent"
+                />
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
-        {/* Door */}
-        <motion.div
-          animate={{ rotateY: isHovered ? -20 : 0 }}
-          transition={{ type: "spring", stiffness: 60, damping: 15 }}
-          className="absolute inset-4 sm:inset-5 top-6 rounded-t-[100px] overflow-hidden"
-          style={{ transformOrigin: "left center", transformStyle: "preserve-3d" }}
+        {/* Rune on door */}
+        <motion.svg
+          animate={{ opacity: [0.4, 0.8, 0.4] }}
+          transition={{ duration: 3, repeat: Infinity }}
+          className="absolute top-[35%] left-1/2 -translate-x-1/2 w-10 h-12 text-gold1"
+          viewBox="0 0 40 48"
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-[#4a3528] via-[#3a2a1e] to-[#2a1a10]">
-            {/* Wood grain */}
-            {[...Array(12)].map((_, i) => (
-              <div key={i} className="absolute w-full h-[1px] bg-black/15" style={{ top: `${8 + i * 8}%` }} />
-            ))}
-            
-            {/* Metal bands */}
-            {[15, 50, 80].map((top) => (
-              <div key={top} className="absolute left-0 right-0 h-4 bg-gradient-to-b from-[#5a5a62] to-[#3a3a42] border-y border-black/30" style={{ top: `${top}%` }} />
-            ))}
+          <path d="M20 4 L36 14 L36 34 L20 44 L4 34 L4 14 Z" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M20 12 L20 36 M10 20 L30 28 M10 28 L30 20" stroke="currentColor" strokeWidth="1" />
+        </motion.svg>
 
-            {/* Door ring */}
-            <div className="absolute top-[60%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 rounded-full border-4 border-gold bg-gradient-to-br from-gold-light to-gold-dark shadow-lg" />
+        {/* Processing overlay */}
+        {isProcessing && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute inset-0 bg-bg0/70 rounded-t-[80px] flex items-center justify-center"
+          >
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: "linear" }} className="text-4xl">
+              ⚔️
+            </motion.div>
+          </motion.div>
+        )}
 
-            {/* Glowing rune */}
-            <motion.svg animate={{ opacity: [0.3, 0.6, 0.3] }} transition={{ duration: 3, repeat: Infinity }}
-              className="absolute top-[28%] left-1/2 -translate-x-1/2 w-10 h-12 text-gold" viewBox="0 0 40 50">
-              <path d="M20 3 L35 15 L35 35 L20 47 L5 35 L5 15 Z" fill="none" stroke="currentColor" strokeWidth="1.5" filter="url(#glow)" />
-              <path d="M20 10 L20 40 M12 22 L28 28" stroke="currentColor" strokeWidth="1" />
-              <defs><filter id="glow"><feGaussianBlur stdDeviation="1.5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
-            </motion.svg>
-          </div>
-
-          {/* Light behind door on hover */}
-          {isHovered && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 bg-gradient-to-t from-gold/15 to-transparent" />
-          )}
-        </motion.div>
-
-        {/* Torches */}
-        {["left", "right"].map((side) => (
-          <div key={side} className={`absolute top-1/4 ${side === "left" ? "-left-8 sm:-left-10" : "-right-8 sm:-right-10"}`}>
-            <motion.div animate={{ scale: [1, 1.15, 1], opacity: [0.85, 1, 0.85] }} transition={{ duration: 0.4, repeat: Infinity }}
-              className="w-5 h-10 bg-gradient-to-t from-red-600 via-orange-500 to-yellow-300 rounded-full blur-[2px]" />
-            <div className="absolute top-6 left-1/2 -translate-x-1/2 w-2 h-12 bg-gradient-to-b from-[#4a3020] to-[#3a2010] rounded-b" />
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-16 h-16 bg-gold/15 rounded-full blur-xl" />
-          </div>
-        ))}
+        {!canEnter && !isProcessing && (
+          <div className="absolute inset-0 bg-bg0/50 rounded-t-[80px]" />
+        )}
       </div>
 
-      {/* CTA below door */}
-      <div className="text-center mt-6">
-        <motion.p animate={{ opacity: [0.6, 1, 0.6] }} transition={{ duration: 2, repeat: Infinity }}
-          className="font-cinzel text-base sm:text-lg text-gold/80 tracking-widest uppercase">
-          {disabled ? "Connect to Enter" : "Click to Enter"}
-        </motion.p>
-        <p className="font-crimson text-sm text-parchment/40 mt-1">Entry: 100 TND</p>
-      </div>
+      {/* Torches */}
+      {["left", "right"].map((side) => (
+        <div key={side} className={cn("absolute top-[30%]", side === "left" ? "-left-8" : "-right-8")}>
+          <motion.div
+            animate={{ scale: [1, 1.15, 1], opacity: [0.8, 1, 0.85] }}
+            transition={{ duration: 0.4, repeat: Infinity }}
+            className="w-4 h-10 bg-gradient-to-t from-ember via-[#ff8a50] to-gold1 rounded-full blur-[1px]"
+          />
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 w-1.5 h-12 bg-gradient-to-b from-[#4a3020] to-[#2a1810] rounded-b" />
+        </div>
+      ))}
     </motion.div>
   );
 }
 
 // ============================================
-// TYPEWRITER NARRATION
+// LEADERBOARD MODAL
 // ============================================
-function Narration() {
-  const [text, setText] = useState("");
-  const fullText = "Beyond these gates lies glory... or doom.";
+function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const mockData = [
+    { rank: 1, name: "DragonSlayer", score: 15420, class: "warrior" },
+    { rank: 2, name: "ShadowMage", score: 12890, class: "mage" },
+    { rank: 3, name: "NightBlade", score: 11540, class: "rogue" },
+    { rank: 4, name: "IronFist", score: 9870, class: "warrior" },
+    { rank: 5, name: "FrostWizard", score: 8640, class: "mage" },
+  ];
 
-  useEffect(() => {
-    let i = 0;
-    const interval = setInterval(() => {
-      if (i <= fullText.length) {
-        setText(fullText.slice(0, i));
-        i++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 50);
-    return () => clearInterval(interval);
-  }, []);
+  if (!isOpen) return null;
 
   return (
-    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}
-      className="font-crimson text-lg sm:text-xl text-parchment/70 italic text-center max-w-lg h-8">
-      &ldquo;{text}&rdquo;
-      <motion.span animate={{ opacity: [1, 0] }} transition={{ duration: 0.5, repeat: Infinity }} className="inline-block w-[2px] h-5 bg-gold/60 ml-1 align-middle" />
-    </motion.p>
-  );
-}
-
-// ============================================
-// DEMO CTA
-// ============================================
-function DemoButton({ onClick }: { onClick: () => void }) {
-  return (
-    <motion.button
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ delay: 1.5 }}
-      whileHover={{ scale: 1.03 }}
-      whileTap={{ scale: 0.97 }}
-      onClick={onClick}
-      className="mt-8 px-6 py-3 bg-mystic/60 hover:bg-mystic/80 border border-mystic-light/30 rounded-lg font-cinzel text-sm text-parchment uppercase tracking-wider transition-colors"
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-bg0/80 backdrop-blur-sm"
+      onClick={onClose}
     >
-      🎮 Try Demo Mode <span className="text-parchment/50 ml-1">— No Wallet</span>
-    </motion.button>
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-lg td-panel-elevated td-rivets overflow-hidden"
+      >
+        <div className="p-6 border-b border-line flex items-center justify-between">
+          <h2 className="font-display text-2xl text-gold1">🏆 Leaderboard</h2>
+          <button onClick={onClose} className="text-text2 hover:text-text0 text-2xl">×</button>
+        </div>
+
+        <div className="p-4 space-y-2 max-h-[400px] overflow-y-auto">
+          {mockData.map((entry) => (
+            <div key={entry.rank} className="flex items-center gap-4 p-4 rounded-lg bg-panel hover:bg-panel2 transition-colors">
+              <div
+                className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center font-display font-bold",
+                  entry.rank === 1 ? "bg-gold1 text-bg0" : entry.rank === 2 ? "bg-text2 text-bg0" : entry.rank === 3 ? "bg-gold3 text-text0" : "bg-bg2 text-text2"
+                )}
+              >
+                {entry.rank}
+              </div>
+              <div className="flex-1">
+                <p className="text-text0 font-ui font-semibold">{entry.name}</p>
+                <p className="text-text2 text-sm font-ui capitalize">{entry.class}</p>
+              </div>
+              <p className="text-gold1 font-display font-bold tabular-nums">{entry.score.toLocaleString()}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="p-4 border-t border-line text-center text-text2 text-sm font-ui">Season 1 • Updated hourly</div>
+      </motion.div>
+    </motion.div>
   );
 }
 
@@ -259,77 +237,216 @@ function DemoButton({ onClick }: { onClick: () => void }) {
 // ============================================
 export default function LandingPage() {
   const router = useRouter();
-  const [isConnected, setIsConnected] = useState(false);
-  const [showDemoModal, setShowDemoModal] = useState(false);
+  const { publicKey, connected, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+  const { balance, loading: balanceLoading, decimals, refresh: refreshBalance } = useTokenBalance();
+
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isFreeEntry = publicKey ? hasFreeEntry(publicKey.toBase58()) : false;
+  const canEnter = connected && (isFreeEntry || balance >= ENTRY_FEE);
+
+  const handleEnter = useCallback(async () => {
+    if (!publicKey || !connected) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      if (isFreeEntry) {
+        const res = await fetch("/api/free-entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ playerPubkey: publicKey.toBase58() }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Failed to get free entry");
+
+        localStorage.setItem("td_session", JSON.stringify({ token: data.token, sessionId: data.sessionId, seed: data.seed, expiresAt: data.expiresAt }));
+        router.push("/dungeon");
+        return;
+      }
+
+      if (balance < ENTRY_FEE) {
+        setError(`Need ${ENTRY_FEE} TND to enter`);
+        setIsProcessing(false);
+        return;
+      }
+
+      const playerATA = await getAssociatedTokenAddress(TOKEN_MINT, publicKey);
+      const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
+
+      const playerAccount = await connection.getAccountInfo(playerATA);
+      if (!playerAccount) throw new Error("You don't have a TND token account.");
+
+      const treasuryAccount = await connection.getAccountInfo(treasuryATA);
+      if (!treasuryAccount) throw new Error("Treasury not set up. Contact support.");
+
+      const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, decimals));
+      const transaction = new Transaction().add(createTransferInstruction(playerATA, treasuryATA, publicKey, transferAmount, [], TOKEN_PROGRAM_ID));
+
+      const { blockhash } = await connection.getLatestBlockhash("confirmed");
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      const signature = await sendTransaction(transaction, connection, { skipPreflight: true, maxRetries: 3 });
+      await connection.confirmTransaction(signature, "confirmed");
+
+      const res = await fetch("/api/verify-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signature, playerPubkey: publicKey.toBase58() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to verify payment");
+
+      localStorage.setItem("td_session", JSON.stringify({ token: data.token, sessionId: data.sessionId, seed: data.seed, expiresAt: data.expiresAt }));
+      await refreshBalance();
+      router.push("/dungeon");
+    } catch (err) {
+      console.error("Entry error:", err);
+      setError(err instanceof Error ? err.message : "Failed to enter dungeon");
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [publicKey, connected, isFreeEntry, balance, decimals, connection, sendTransaction, router, refreshBalance]);
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden">
-      <CinematicBackground />
+    <main className="relative min-h-screen overflow-hidden bg-bg0">
+      {/* Background */}
+      <div className="fixed inset-0">
+        <div className="absolute inset-0 bg-radial-void" />
+        <div className="absolute inset-0 bg-soot" />
+      </div>
       <EmberParticles />
-      <Header isConnected={isConnected} onConnect={() => setIsConnected(!isConnected)} balance={1250} />
 
-      {/* Main content - centered */}
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 pt-16 pb-8">
-        {/* Title */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-4">
-          <p className="font-cinzel text-xs sm:text-sm text-gold/60 uppercase tracking-[0.2em] mb-2">A Solana-Powered Dungeon Crawler</p>
-          <h1 className="font-cinzel text-5xl sm:text-6xl md:text-7xl font-black leading-none">
-            <span className="bg-gradient-to-b from-gold-pale via-gold to-gold-dark bg-clip-text text-transparent drop-shadow-[0_0_20px_rgba(184,134,11,0.3)]">TRENCHES</span>
-            <span className="block text-3xl sm:text-4xl text-blood/80 my-1">&</span>
-            <span className="bg-gradient-to-b from-parchment via-parchment-dark to-trench-mud/80 bg-clip-text text-transparent">DRAGONS</span>
-          </h1>
+      {/* Top-right controls */}
+      <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
+        {connected && (
+          <div className="flex items-center gap-2 px-4 py-2 td-panel rounded-lg">
+            <span className="text-text2 text-sm font-ui">TND</span>
+            {balanceLoading ? (
+              <span className="text-text2">...</span>
+            ) : (
+              <span className="text-gold1 font-display font-bold">{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+            )}
+          </div>
+        )}
+        <button onClick={() => setShowLeaderboard(true)} className="td-btn td-btn-ghost text-sm">
+          🏆
+        </button>
+        <WalletButton />
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4">
+        {/* Logo */}
+        <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className="mb-6">
+          <Image src="/logo.png" alt="Trenches & Dragons" width={140} height={140} className="drop-shadow-[0_0_40px_rgba(232,207,138,0.4)]" />
         </motion.div>
 
-        {/* Narration */}
-        <div className="mb-8">
-          <Narration />
-        </div>
+        {/* Title */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="text-center mb-8">
+          <p className="td-label mb-4 tracking-[0.3em]">A Solana Dungeon Crawler</p>
 
-        {/* Gateway */}
-        <DramaticGateway onEnter={() => router.push("/dungeon")} disabled={!isConnected} />
+          <h1 className="font-display font-black leading-none mb-4">
+            <span
+              className="block text-5xl sm:text-6xl md:text-7xl"
+              style={{
+                background: "linear-gradient(180deg, var(--gold-0) 0%, var(--gold-1) 40%, var(--gold-2) 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 4px 30px rgba(232,207,138,0.4))",
+              }}
+            >
+              TRENCHES
+            </span>
+            <span className="block text-2xl sm:text-3xl text-blood my-1">&</span>
+            <span className="block text-5xl sm:text-6xl md:text-7xl text-text0">DRAGONS</span>
+          </h1>
 
-        {/* Demo button */}
-        <DemoButton onClick={() => setShowDemoModal(true)} />
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} className="text-lg text-text2 font-flavor italic">
+            "Enter the darkness. Claim your glory."
+          </motion.p>
+        </motion.div>
 
-        {/* Hint for non-connected */}
+        {/* Error */}
         <AnimatePresence>
-          {!isConnected && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="mt-4 text-parchment/40 text-sm font-crimson">
-              Connect wallet to play with tokens
-            </motion.p>
+          {error && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mb-6 px-6 py-3 bg-blood/20 border border-blood/30 rounded-lg text-blood text-sm font-ui"
+            >
+              {error}
+            </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Gate */}
+        <DungeonGate canEnter={canEnter} isProcessing={isProcessing} onClick={handleEnter} />
+
+        {/* CTA text */}
+        <div className="text-center mt-6">
+          <motion.p
+            animate={{ opacity: [0.6, 1, 0.6] }}
+            transition={{ duration: 2.5, repeat: Infinity }}
+            className={cn("font-display tracking-widest uppercase text-sm", canEnter ? "text-gold1" : "text-text2")}
+          >
+            Enter the Trenches
+          </motion.p>
+
+          <div className="mt-2 h-5">
+            {!connected ? (
+              <p className="text-text2 text-sm font-ui">Connect wallet to play for real</p>
+            ) : isFreeEntry ? (
+              <p className="text-venom text-sm font-ui">🎖️ Admin Access — Free Entry</p>
+            ) : balance < ENTRY_FEE ? (
+              <p className="text-blood text-sm font-ui">Need {ENTRY_FEE} TND • You have {balance.toFixed(0)} TND</p>
+            ) : (
+              <p className="text-text2 text-sm font-ui">{ENTRY_FEE} TND entry fee</p>
+            )}
+          </div>
+        </div>
+
+        {/* Demo button */}
+        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} onClick={() => router.push("/dungeon?demo=true")} className="mt-6 td-btn td-btn-secondary">
+          🎮 Play Free Demo
+        </motion.button>
+
+        {/* Features */}
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="flex flex-wrap justify-center gap-4 mt-12">
+          {[
+            { icon: "⚔️", title: "Strategic Combat", desc: "Dice-based battles" },
+            { icon: "📜", title: "Branching Story", desc: "Your choices matter" },
+            { icon: "💰", title: "Real Rewards", desc: "Earn TND tokens" },
+          ].map((f, i) => (
+            <motion.div
+              key={f.title}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2 + i * 0.1 }}
+              className="flex items-center gap-3 px-4 py-3 td-panel"
+            >
+              <span className="text-2xl">{f.icon}</span>
+              <div>
+                <p className="text-text0 font-ui font-medium text-sm">{f.title}</p>
+                <p className="text-text2 text-xs font-ui">{f.desc}</p>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
       </div>
 
       {/* Footer */}
-      <div className="absolute bottom-4 left-0 right-0 text-center">
-        <p className="text-parchment/20 text-xs font-crimson">Trenches & Dragons © 2026 • Powered by Solana</p>
+      <div className="absolute bottom-4 left-0 right-0 text-center z-10">
+        <p className="text-text2/40 text-xs font-ui">© 2026 Trenches & Dragons • Powered by Solana</p>
       </div>
 
-      {/* Demo Modal */}
-      <Modal isOpen={showDemoModal} onClose={() => setShowDemoModal(false)} title="⚔️ Demo Mode">
-        <div className="space-y-4">
-          <p className="font-crimson text-parchment">Experience the full dungeon adventure without connecting your wallet.</p>
-          
-          <div className="bg-abyss/40 rounded-lg p-4 border border-gold/10">
-            <ul className="font-crimson text-parchment/80 text-sm space-y-2">
-              <li>⚔ Combat with dice mechanics</li>
-              <li>💰 Treasure and gold rewards</li>
-              <li>⚠ Traps and rest encounters</li>
-              <li>🏆 Victory and defeat endings</li>
-            </ul>
-          </div>
-
-          <p className="font-crimson text-xs text-parchment/50">Demo rewards are simulated. Connect wallet to earn real TND!</p>
-
-          <div className="flex gap-3">
-            <Button variant="primary" onClick={() => { setShowDemoModal(false); router.push("/dungeon?demo=true"); }} className="flex-1">
-              Start Demo
-            </Button>
-            <Button variant="ghost" onClick={() => setShowDemoModal(false)}>Cancel</Button>
-          </div>
-        </div>
-      </Modal>
+      <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
     </main>
   );
 }

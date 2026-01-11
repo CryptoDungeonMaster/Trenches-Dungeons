@@ -1,170 +1,251 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Suspense } from "react";
-import Button from "@/components/ui/Button";
+import { useEffect, useState, Suspense } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter, useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 // ============================================
-// BACKGROUNDS
+// EMBER PARTICLES
 // ============================================
-function VictoryBackground() {
+function EmberParticles({ color = "ember" }: { color?: "ember" | "gold" }) {
+  const [embers, setEmbers] = useState<Array<{ id: number; x: number; delay: number; size: number }>>([]);
+
+  useEffect(() => {
+    setEmbers(
+      Array.from({ length: 15 }, (_, i) => ({
+        id: i,
+        x: Math.random() * 100,
+        delay: Math.random() * 4,
+        size: 2 + Math.random() * 2,
+      }))
+    );
+  }, []);
+
   return (
-    <div className="fixed inset-0">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#1a1a10] via-[#0d0d08] to-[#050503]" />
-      <motion.div animate={{ rotate: 360 }} transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-        className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%]"
-        style={{ background: `conic-gradient(from 0deg at 50% 50%, transparent 0deg, rgba(184,134,11,0.08) 3deg, transparent 6deg, transparent 15deg, rgba(184,134,11,0.06) 18deg, transparent 21deg)` }} />
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-64 bg-gradient-to-b from-gold/10 to-transparent" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_40%,rgba(0,0,0,0.6)_100%)]" />
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {embers.map((e) => (
+        <motion.div
+          key={e.id}
+          initial={{ x: `${e.x}%`, y: "105%", opacity: 0 }}
+          animate={{ y: "-5%", opacity: [0, 0.6, 0] }}
+          transition={{ duration: 5 + Math.random() * 3, delay: e.delay, repeat: Infinity }}
+          className="absolute rounded-full"
+          style={{
+            width: e.size,
+            height: e.size,
+            background: color === "gold" ? "var(--gold-1)" : "var(--ember)",
+            boxShadow: `0 0 ${e.size * 2}px ${color === "gold" ? "var(--gold-1)" : "var(--ember)"}`,
+          }}
+        />
+      ))}
     </div>
   );
 }
 
-function DefeatBackground() {
-  return (
-    <div className="fixed inset-0">
-      <div className="absolute inset-0 bg-gradient-to-b from-[#150808] via-[#0a0505] to-[#050303]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#1a1510]/30 to-[#1a1510]/50" />
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.7)_100%)]" />
-    </div>
-  );
-}
-
 // ============================================
-// VICTORY
+// STAT PLAQUE
 // ============================================
-function Victory({ score, gold, isDemo }: { score: number; gold: number; isDemo: boolean }) {
-  const router = useRouter();
-
+function StatPlaque({ label, value, icon, delay }: { label: string; value: string | number; icon: string; delay: number }) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center px-4 py-8">
-      {/* Trophy */}
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", delay: 0.3 }} className="relative inline-block mb-6">
-        <motion.div animate={{ scale: [1, 1.1, 1] }} transition={{ duration: 2, repeat: Infinity }} className="text-7xl sm:text-8xl">🏆</motion.div>
-        <span className="absolute -left-6 top-1/2 -translate-y-1/2 text-3xl rotate-[-15deg]">🌿</span>
-        <span className="absolute -right-6 top-1/2 -translate-y-1/2 text-3xl rotate-[15deg] scale-x-[-1]">🌿</span>
-      </motion.div>
-
-      <motion.h1 initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}
-        className="font-cinzel text-5xl sm:text-6xl font-black text-gold mb-3 drop-shadow-[0_0_20px_rgba(184,134,11,0.4)]">
-        VICTORIOUS!
-      </motion.h1>
-
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-        className="font-crimson text-lg text-parchment/70 mb-8 italic">
-        {isDemo ? "You conquered the demo!" : "You emerged triumphant!"}
-      </motion.p>
-
-      {/* Stats */}
-      <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.9 }}
-        className="bg-[#2a2a32]/80 backdrop-blur rounded-lg border border-gold/30 p-6 max-w-sm mx-auto mb-6">
-        <h2 className="font-cinzel text-gold mb-4 border-b border-gold/20 pb-2">{isDemo ? "Demo Results" : "War Commendation"}</h2>
-        <div className="space-y-3">
-          <div className="flex justify-between"><span className="text-parchment/60">Glory</span><span className="font-cinzel text-xl text-gold">{score}</span></div>
-          <div className="flex justify-between"><span className="text-parchment/60">Gold</span><span className="font-cinzel text-xl text-gold">{gold}</span></div>
-          <div className="flex justify-between border-t border-gold/10 pt-2">
-            <span className="text-parchment/60">Rank</span>
-            <span className="font-cinzel text-gold">{score >= 500 ? "🏅 Champion" : score >= 300 ? "⚔️ Veteran" : "🛡️ Survivor"}</span>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Demo notice */}
-      {isDemo && (
-        <p className="text-parchment/50 text-sm mb-6">🎮 Demo rewards are simulated. Connect wallet for real TND!</p>
-      )}
-
-      {/* Actions */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }} className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Button variant="gold" onClick={() => router.push(isDemo ? "/dungeon?demo=true" : "/dungeon")}>
-          {isDemo ? "Play Again" : "Enter Again"}
-        </Button>
-        {isDemo ? (
-          <Button variant="primary" onClick={() => router.push("/")}>Connect Wallet</Button>
-        ) : (
-          <Button variant="primary" onClick={() => alert("Claiming...")}>Claim Reward</Button>
-        )}
-      </motion.div>
-
-      <button onClick={() => router.push("/")} className="mt-4 text-parchment/40 hover:text-parchment/60 text-sm font-cinzel">
-        Return to Camp
-      </button>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+      className="flex items-center gap-3 px-4 py-3 td-panel"
+    >
+      <span className="text-2xl">{icon}</span>
+      <div>
+        <p className="td-label">{label}</p>
+        <p className="font-display text-lg text-gold1">{value}</p>
+      </div>
     </motion.div>
   );
 }
 
 // ============================================
-// DEFEAT
-// ============================================
-function Defeat({ isDemo }: { isDemo: boolean }) {
-  const router = useRouter();
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center px-4 py-8">
-      <motion.div initial={{ scale: 0 }} animate={{ scale: 1, rotate: [-5, 5, 0] }} transition={{ type: "spring", delay: 0.3 }}
-        className="text-7xl sm:text-8xl grayscale-[50%] mb-6">💀</motion.div>
-
-      <motion.h1 initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }}
-        className="font-cinzel text-5xl sm:text-6xl font-black text-blood mb-3 drop-shadow-[0_0_20px_rgba(139,0,0,0.4)]">
-        FALLEN
-      </motion.h1>
-
-      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}
-        className="font-crimson text-lg text-parchment/50 mb-8 italic">
-        {isDemo ? "The demo trenches bested you..." : "The trenches claimed another soul..."}
-      </motion.p>
-
-      <motion.div initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.9 }}
-        className="bg-[#1a1515]/80 backdrop-blur rounded-lg border border-blood/30 p-6 max-w-sm mx-auto mb-6">
-        <p className="font-crimson text-parchment/50">
-          {isDemo ? "Don't worry — just practice! Try again." : "All gold and glory lost to darkness."}
-        </p>
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.1 }} className="flex flex-col sm:flex-row gap-3 justify-center">
-        <Button variant="danger" onClick={() => router.push(isDemo ? "/dungeon?demo=true" : "/dungeon")}>Try Again</Button>
-        {isDemo && <Button variant="primary" onClick={() => router.push("/")}>Connect Wallet</Button>}
-      </motion.div>
-
-      <button onClick={() => router.push("/")} className="mt-4 text-parchment/40 hover:text-parchment/60 text-sm font-cinzel">
-        Return to Camp
-      </button>
-    </motion.div>
-  );
-}
-
-// ============================================
-// MAIN
+// MAIN END CONTENT
 // ============================================
 function EndContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+
   const result = searchParams.get("result") || "defeat";
-  const score = parseInt(searchParams.get("score") || "0");
-  const gold = parseInt(searchParams.get("gold") || "0");
+  const score = parseInt(searchParams.get("score") || "0", 10);
+  const gold = parseInt(searchParams.get("gold") || "0", 10);
   const isDemo = searchParams.get("demo") === "true";
+
   const isVictory = result === "victory";
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowStats(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
-    <main className="relative min-h-screen flex items-center justify-center">
-      {isVictory ? <VictoryBackground /> : <DefeatBackground />}
-      
-      {isDemo && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-mystic/90 py-2 text-center border-b border-mystic-light/20">
-          <p className="font-cinzel text-sm text-parchment">🎮 <span className="text-gold">DEMO</span></p>
-        </div>
-      )}
+    <main className="relative min-h-screen flex flex-col items-center justify-center p-4 bg-bg0 overflow-hidden">
+      {/* Background */}
+      <div className="fixed inset-0">
+        {isVictory ? (
+          <>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(232,207,138,0.12),transparent_60%)]" />
+            <EmberParticles color="gold" />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(179,23,42,0.1),transparent_60%)]" />
+            <EmberParticles color="ember" />
+          </>
+        )}
+        <div className="absolute inset-0 bg-soot" />
+      </div>
 
-      <div className={`relative z-10 w-full ${isDemo ? "pt-10" : ""}`}>
-        {isVictory ? <Victory score={score} gold={gold} isDemo={isDemo} /> : <Defeat isDemo={isDemo} />}
+      {/* Content */}
+      <div className="relative z-10 text-center max-w-lg w-full">
+        {/* Icon */}
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: "spring", duration: 0.8 }}
+          className="mb-6"
+        >
+          {isVictory ? (
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ duration: 3, repeat: Infinity }} className="text-8xl">
+              👑
+            </motion.div>
+          ) : (
+            <motion.div animate={{ rotate: [0, 5, -5, 0] }} transition={{ duration: 4, repeat: Infinity }} className="text-8xl grayscale">
+              💀
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Title */}
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className={cn(
+            "font-display text-4xl sm:text-5xl font-black mb-4",
+            isVictory ? "text-gold1 text-glow-gold" : "text-blood"
+          )}
+        >
+          {isVictory ? "VICTORY!" : "DEFEAT"}
+        </motion.h1>
+
+        {/* Subtitle */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+          className="text-text1 font-flavor text-lg italic mb-8"
+        >
+          {isVictory
+            ? "You have conquered the trenches and emerged victorious!"
+            : "The darkness claims another soul..."}
+        </motion.p>
+
+        {/* Demo notice */}
+        {isDemo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.7 }}
+            className="mb-8 px-4 py-3 bg-arcane/20 border border-arcane/30 rounded-lg inline-block"
+          >
+            <p className="font-ui text-sm text-text1">
+              🎮 Demo Mode — <span className="text-gold1">Connect wallet to earn real rewards!</span>
+            </p>
+          </motion.div>
+        )}
+
+        {/* Stats */}
+        <AnimatePresence>
+          {showStats && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 mb-8">
+              <div className="grid grid-cols-2 gap-3">
+                <StatPlaque label="Final Score" value={score.toLocaleString()} icon="🏆" delay={0.1} />
+                <StatPlaque label="Gold Collected" value={gold.toLocaleString()} icon="💰" delay={0.2} />
+              </div>
+
+              {isVictory && !isDemo && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: 0.5 }}
+                  className="mt-6 p-5 td-panel-elevated td-rivets"
+                >
+                  <p className="font-display text-gold1 mb-2">🎁 Rewards Available</p>
+                  <p className="font-ui text-xs text-text2 mb-4">Claim your TND tokens based on your performance!</p>
+                  <button className="td-btn td-btn-primary">Claim Rewards</button>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Actions */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="flex flex-col sm:flex-row gap-3 justify-center"
+        >
+          <button
+            onClick={() => router.push(isDemo ? "/dungeon?demo=true" : "/dungeon")}
+            className={cn("td-btn", isVictory ? "td-btn-primary" : "td-btn-danger")}
+          >
+            {isVictory ? "⚔️ Play Again" : "🔄 Try Again"}
+          </button>
+          <button onClick={() => router.push("/")} className="td-btn td-btn-ghost">
+            ← Return Home
+          </button>
+        </motion.div>
+
+        {/* Leaderboard prompt */}
+        {!isDemo && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.5 }}
+            className="mt-8 text-xs text-text2 font-ui"
+          >
+            Your score has been recorded on the leaderboard
+          </motion.p>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="absolute bottom-4 left-0 right-0 text-center">
+        <p className="text-text2/40 text-xs font-ui">Trenches & Dragons © 2026</p>
       </div>
     </main>
   );
 }
 
+// ============================================
+// LOADING
+// ============================================
+function EndLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-bg0">
+      <div className="text-center">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }} className="text-5xl mb-4">
+          ⚔️
+        </motion.div>
+        <p className="text-text2 font-flavor">Tallying your glory...</p>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// MAIN EXPORT
+// ============================================
 export default function EndPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-abyss"><p className="text-parchment animate-pulse">Loading...</p></div>}>
+    <Suspense fallback={<EndLoading />}>
       <EndContent />
     </Suspense>
   );
