@@ -3,109 +3,47 @@
 import { motion, HTMLMotionProps } from "framer-motion";
 import { forwardRef } from "react";
 import { cn } from "@/lib/utils";
-import { buttonPress } from "@/lib/motion";
 
-// SVG Icons
-const ShieldIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V8.26l7-3.89v8.63z" />
-  </svg>
-);
-
-const SwordIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-    <path d="M6.92 5H5l8 8H9.06l-4-4L3 11.06V13h3.94l6 6 2.12-2.12 8-8V7h-1.94L12 16.06 6.92 5z" />
-  </svg>
-);
-
-const SkullIcon = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-    <path d="M12 2C6.48 2 2 6.48 2 12c0 3.69 2.47 6.86 6 8.25V22h8v-1.75c3.53-1.39 6-4.56 6-8.25 0-5.52-4.48-10-10-10zm-2 15h-1v-2h1v2zm6 0h-1v-2h1v2zm2-6c0 .55-.45 1-1 1h-1v1c0 .55-.45 1-1 1s-1-.45-1-1v-1h-4v1c0 .55-.45 1-1 1s-1-.45-1-1v-1H7c-.55 0-1-.45-1-1 0-2.76 2.24-5 5-5h2c2.76 0 5 2.24 5 5z" />
-  </svg>
-);
-
-type ButtonVariant = "primary" | "gold" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "gold" | "ghost" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends Omit<HTMLMotionProps<"button">, "ref"> {
   variant?: ButtonVariant;
-  icon?: "shield" | "sword" | "skull" | "none";
+  size?: ButtonSize;
   isLoading?: boolean;
   children: React.ReactNode;
+  icon?: string;
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
-  primary: `
-    bg-gradient-to-b from-blood to-blood-dark
-    text-parchment
-    border-2 border-blood/50
-    shadow-ember
-    hover:from-blood-light hover:to-blood
-    hover:shadow-ember-lg
-  `,
-  gold: `
-    bg-gradient-to-b from-gold-light to-gold
-    text-abyss
-    border-2 border-gold-pale/50
-    shadow-candle
-    hover:from-gold-pale hover:to-gold-light
-    hover:shadow-candle-lg
-  `,
-  ghost: `
-    bg-transparent
-    text-parchment
-    border-2 border-parchment/30
-    hover:border-parchment/60
-    hover:bg-parchment/5
-  `,
-  danger: `
-    bg-gradient-to-b from-mystic to-mystic-dark
-    text-parchment
-    border-2 border-mystic-light/30
-    shadow-[0_0_15px_rgba(74,28,107,0.3)]
-    hover:from-mystic-light hover:to-mystic
-  `,
+  primary: "bg-gradient-to-b from-amber-500 to-amber-700 text-black font-bold hover:from-amber-400 hover:to-amber-600 shadow-lg shadow-amber-900/30",
+  secondary: "bg-gradient-to-b from-slate-600 to-slate-800 text-white hover:from-slate-500 hover:to-slate-700 shadow-lg shadow-black/30",
+  gold: "bg-gradient-to-b from-yellow-400 to-amber-600 text-black font-bold hover:from-yellow-300 hover:to-amber-500 shadow-lg shadow-amber-900/40",
+  ghost: "bg-white/5 text-white/80 hover:bg-white/10 hover:text-white border border-white/10 hover:border-white/20",
+  danger: "bg-gradient-to-b from-red-600 to-red-800 text-white hover:from-red-500 hover:to-red-700 shadow-lg shadow-red-900/30",
 };
 
-const iconMap = {
-  shield: ShieldIcon,
-  sword: SwordIcon,
-  skull: SkullIcon,
-  none: null,
+const sizeStyles: Record<ButtonSize, string> = {
+  sm: "px-4 py-2 text-sm rounded-lg",
+  md: "px-6 py-3 text-base rounded-xl",
+  lg: "px-8 py-4 text-lg rounded-xl",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    {
-      variant = "primary",
-      icon = "none",
-      isLoading = false,
-      children,
-      className,
-      disabled,
-      ...props
-    },
-    ref
-  ) => {
-    const IconComponent = iconMap[icon];
-
+  ({ variant = "primary", size = "md", isLoading = false, children, className, disabled, icon, ...props }, ref) => {
     return (
       <motion.button
         ref={ref}
-        variants={buttonPress}
-        initial="idle"
-        whileHover={disabled ? undefined : "hover"}
-        whileTap={disabled ? undefined : "tap"}
+        whileHover={disabled || isLoading ? undefined : { scale: 1.02, y: -1 }}
+        whileTap={disabled || isLoading ? undefined : { scale: 0.98 }}
         className={cn(
-          "btn-base",
-          "rounded-sm",
-          "min-w-[120px]",
+          "inline-flex items-center justify-center gap-2 font-semibold transition-all",
           variantStyles[variant],
-          disabled && "opacity-50 cursor-not-allowed",
-          variant === "primary" && "ember-glow",
+          sizeStyles[size],
+          (disabled || isLoading) && "opacity-50 cursor-not-allowed",
           className
         )}
         disabled={disabled || isLoading}
-        aria-disabled={disabled || isLoading}
         {...props}
       >
         {isLoading ? (
@@ -116,7 +54,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           />
         ) : (
           <>
-            {IconComponent && <IconComponent />}
+            {icon && <span>{icon}</span>}
             <span>{children}</span>
           </>
         )}
