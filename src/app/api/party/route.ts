@@ -51,13 +51,22 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: "Party not found" }, { status: 404 });
       }
 
-      // Get members
+      // Get members and transform to consistent format
       const { data: members } = await supabase
         .from(TABLES.partyMembers)
-        .select("*")
+        .select("player_address, is_ready, is_leader")
         .eq("party_id", party.id);
 
-      return NextResponse.json({ party: { ...party, members } });
+      return NextResponse.json({ 
+        party: { 
+          ...party, 
+          members: members?.map(m => ({ 
+            address: m.player_address, 
+            ready: m.is_ready,
+            isLeader: m.is_leader 
+          })) || [] 
+        } 
+      });
     }
 
     // Build query based on code or id
@@ -75,13 +84,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Party not found" }, { status: 404 });
     }
 
-    // Get members
+    // Get members and transform to consistent format
     const { data: members } = await supabase
       .from(TABLES.partyMembers)
-      .select("*")
+      .select("player_address, is_ready, is_leader")
       .eq("party_id", party.id);
 
-    return NextResponse.json({ party: { ...party, members } });
+    return NextResponse.json({ 
+      party: { 
+        ...party, 
+        members: members?.map(m => ({ 
+          address: m.player_address, 
+          ready: m.is_ready,
+          isLeader: m.is_leader 
+        })) || [] 
+      } 
+    });
   } catch (error: unknown) {
     console.error("Get party error:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

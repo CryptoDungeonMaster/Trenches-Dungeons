@@ -345,9 +345,14 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/party?id=${partyId}`);
+        if (!res.ok) return; // Skip if error
         const data = await res.json();
-        if (data.party) {
-          setMembers(data.party.members || []);
+        if (data.party && data.party.members) {
+          // Ensure members have required fields
+          const validMembers = data.party.members.filter(
+            (m: { address?: string }) => m && m.address
+          );
+          setMembers(validMembers);
           if (data.party.status === "in_dungeon") {
             onStart(partyId);
           }
@@ -427,11 +432,11 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
       <div className="mb-6">
         <p className="text-text2 text-sm font-ui mb-3">Party Members ({members.length}/4):</p>
         <div className="space-y-2 max-w-xs mx-auto">
-          {members.map((m, i) => (
+          {members.filter(m => m?.address).map((m, i) => (
             <div key={m.address} className="flex items-center gap-3 px-4 py-2 td-panel rounded-lg">
               <span className="text-lg">{i === 0 ? "👑" : "⚔️"}</span>
               <span className="text-text0 font-ui text-sm truncate flex-1">
-                {m.address.slice(0, 4)}...{m.address.slice(-4)}
+                {m.address?.slice(0, 4)}...{m.address?.slice(-4)}
               </span>
               <span className={cn("text-xs px-2 py-0.5 rounded", m.ready ? "bg-venom/20 text-venom" : "bg-text2/20 text-text2")}>
                 {m.ready ? "Ready" : "Waiting"}
