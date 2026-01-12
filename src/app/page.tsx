@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PublicKey, Transaction } from "@solana/web3.js";
-import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { hasFreeEntry } from "@/lib/admins";
@@ -309,12 +309,18 @@ export default function LandingPage() {
       const playerTokenAccount = playerAccounts.value[0].pubkey;
       const tokenInfo = playerAccounts.value[0].account.data.parsed.info;
       const tokenDecimals = tokenInfo.tokenAmount.decimals || 6;
+      
+      // Detect which token program this mint uses (Token or Token-2022)
+      const tokenProgramId = playerAccounts.value[0].account.owner.equals(TOKEN_2022_PROGRAM_ID) 
+        ? TOKEN_2022_PROGRAM_ID 
+        : TOKEN_PROGRAM_ID;
 
       console.log("[Entry] Player token account:", playerTokenAccount.toBase58());
       console.log("[Entry] Token balance:", tokenInfo.tokenAmount.uiAmount);
+      console.log("[Entry] Token program:", tokenProgramId.toBase58());
 
-      // Get treasury ATA
-      const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
+      // Get treasury ATA for the correct program
+      const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET, false, tokenProgramId);
       console.log("[Entry] Treasury ATA:", treasuryATA.toBase58());
 
       // Build simple transfer transaction
@@ -331,7 +337,7 @@ export default function LandingPage() {
             treasuryATA, // ata address
             TREASURY_WALLET, // owner
             TOKEN_MINT, // mint
-            TOKEN_PROGRAM_ID,
+            tokenProgramId, // use detected program
             ASSOCIATED_TOKEN_PROGRAM_ID
           )
         );
@@ -349,7 +355,7 @@ export default function LandingPage() {
           publicKey,
           transferAmount,
           [],
-          TOKEN_PROGRAM_ID
+          tokenProgramId // use detected program
         )
       );
 
