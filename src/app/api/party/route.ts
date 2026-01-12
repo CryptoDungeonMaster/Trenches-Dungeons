@@ -130,14 +130,36 @@ export async function POST(request: NextRequest) {
     const { action, leader, player, code: partyCode, force } = parseResult.data;
     const supabase = createServiceRoleSupabaseClient();
 
-    // If force flag is set, clean up ALL party memberships for this player first
-    if (force) {
-      const playerAddress = leader || player;
-      if (playerAddress) {
-        await supabase
-          .from(TABLES.partyMembers)
-          .delete()
-          .eq("player_address", playerAddress);
+    // Always clean up stale party memberships for this player first
+    const playerAddress = leader || player;
+    if (playerAddress) {
+      // Get all party memberships for this player
+      const { data: existingMemberships } = await supabase
+        .from(TABLES.partyMembers)
+        .select("party_id")
+        .eq("player_address", playerAddress);
+      
+      if (existingMemberships && existingMemberships.length > 0) {
+        // Check each party - if it's not active, clean up
+        for (const membership of existingMemberships) {
+          const { data: party } = await supabase
+            .from(TABLES.parties)
+            .select("id, status, created_at")
+            .eq("id", membership.party_id)
+            .single();
+          
+          // Clean up if: party doesn't exist, is completed/disbanded, or is old (>1 hour)
+          const isOld = party?.created_at && 
+            (Date.now() - new Date(party.created_at).getTime() > 60 * 60 * 1000);
+          
+          if (!party || party.status === "completed" || party.status === "disbanded" || isOld || force) {
+            await supabase
+              .from(TABLES.partyMembers)
+              .delete()
+              .eq("party_id", membership.party_id)
+              .eq("player_address", playerAddress);
+          }
+        }
       }
     }
 

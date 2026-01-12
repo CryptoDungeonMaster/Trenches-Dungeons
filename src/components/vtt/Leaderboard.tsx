@@ -23,19 +23,7 @@ interface LeaderboardProps {
   className?: string;
 }
 
-// Fallback mock data for demo/offline
-const MOCK_LEADERBOARD: LeaderboardEntry[] = [
-  { rank: 1, player_pubkey: "4mhy...5MA", score: 15420, floors_cleared: 12, kills: 47, gold: 2340, class: "warrior", created_at: "2026-01-10" },
-  { rank: 2, player_pubkey: "Fyaf...hxa", score: 12890, floors_cleared: 10, kills: 38, gold: 1980, class: "mage", created_at: "2026-01-09" },
-  { rank: 3, player_pubkey: "5inT...JFk", score: 11540, floors_cleared: 9, kills: 42, gold: 1750, class: "rogue", created_at: "2026-01-09" },
-  { rank: 4, player_pubkey: "8kLp...2Nj", score: 9870, floors_cleared: 8, kills: 35, gold: 1420, class: "warrior", created_at: "2026-01-08" },
-  { rank: 5, player_pubkey: "3xRt...7Qm", score: 8640, floors_cleared: 7, kills: 29, gold: 1280, class: "mage", created_at: "2026-01-08" },
-  { rank: 6, player_pubkey: "9pWs...4Kl", score: 7320, floors_cleared: 6, kills: 31, gold: 1050, class: "rogue", created_at: "2026-01-07" },
-  { rank: 7, player_pubkey: "2bFx...8Hn", score: 6180, floors_cleared: 5, kills: 24, gold: 920, class: "warrior", created_at: "2026-01-07" },
-  { rank: 8, player_pubkey: "7tGy...1Vp", score: 5490, floors_cleared: 5, kills: 22, gold: 810, class: "mage", created_at: "2026-01-06" },
-  { rank: 9, player_pubkey: "5jKl...3Rt", score: 4720, floors_cleared: 4, kills: 19, gold: 690, class: "rogue", created_at: "2026-01-06" },
-  { rank: 10, player_pubkey: "1mNb...9Zx", score: 3980, floors_cleared: 4, kills: 16, gold: 580, class: "warrior", created_at: "2026-01-05" },
-];
+// Empty by default - no mock data
 
 function RankBadge({ rank }: { rank: number }) {
   const badges: Record<number, { bg: string; text: string; icon: string }> = {
@@ -137,7 +125,7 @@ export default function Leaderboard({
   onClose,
   className,
 }: LeaderboardProps) {
-  const [entries, setEntries] = useState<LeaderboardEntry[]>(MOCK_LEADERBOARD);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [filter, setFilter] = useState<CharacterClass | "all">("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -160,18 +148,11 @@ export default function Leaderboard({
       }
 
       const data = await res.json();
-      
-      if (data.entries && data.entries.length > 0) {
-        setEntries(data.entries);
-      } else {
-        // Use mock data if no real entries
-        setEntries(MOCK_LEADERBOARD);
-      }
+      setEntries(data.entries || []);
     } catch (err) {
       console.error("Leaderboard fetch error:", err);
       setError("Unable to load leaderboard");
-      // Use mock data on error
-      setEntries(MOCK_LEADERBOARD);
+      setEntries([]);
     } finally {
       setIsLoading(false);
     }
@@ -254,7 +235,7 @@ export default function Leaderboard({
       {/* Error message */}
       {error && (
         <div className="px-4 py-2 bg-blood/10 text-blood text-sm font-crimson text-center">
-          {error} - Showing sample data
+          {error}
         </div>
       )}
 
