@@ -146,10 +146,15 @@ export async function verifyTokenTransfer(
     let actualSender = "";
     let actualRecipient = "";
 
+    console.log("[verifyTokenTransfer] Checking", instructions.length, "instructions");
+    console.log("[verifyTokenTransfer] Expected sender:", expectedSender);
+    console.log("[verifyTokenTransfer] Expected recipient:", expectedRecipient);
+
     for (const instruction of instructions) {
-      // Check if this is a parsed SPL token instruction
-      if ("parsed" in instruction && instruction.program === "spl-token") {
+      // Check if this is a parsed SPL token instruction (supports both Token and Token-2022)
+      if ("parsed" in instruction && (instruction.program === "spl-token" || instruction.program === "spl-token-2022")) {
         const parsed = instruction.parsed;
+        console.log("[verifyTokenTransfer] Found token instruction:", instruction.program, parsed.type);
 
         // Handle both 'transfer' and 'transferChecked' instructions
         if (parsed.type === "transfer" || parsed.type === "transferChecked") {
@@ -173,6 +178,10 @@ export async function verifyTokenTransfer(
           const preBalances = tx.meta?.preTokenBalances || [];
           const postBalances = tx.meta?.postTokenBalances || [];
 
+          console.log("[verifyTokenTransfer] Source ATA:", sourceAta);
+          console.log("[verifyTokenTransfer] Dest ATA:", destAta);
+          console.log("[verifyTokenTransfer] Amount:", amount);
+
           // Find the source account owner
           let sourceOwner: string | null = null;
           let destOwner: string | null = null;
@@ -187,14 +196,22 @@ export async function verifyTokenTransfer(
 
               if (pubkey === sourceAta) {
                 sourceOwner = balance.owner || null;
+                console.log("[verifyTokenTransfer] Found source owner:", sourceOwner);
               }
               if (pubkey === destAta) {
                 destOwner = balance.owner || null;
+                console.log("[verifyTokenTransfer] Found dest owner:", destOwner);
               }
             }
           }
 
-          if (!correctMint) continue;
+          if (!correctMint) {
+            console.log("[verifyTokenTransfer] Mint doesn't match, skipping");
+            continue;
+          }
+
+          console.log("[verifyTokenTransfer] Comparing - source:", sourceOwner, "vs expected:", expectedSender);
+          console.log("[verifyTokenTransfer] Comparing - dest:", destOwner, "vs expected:", expectedRecipient);
 
           // Validate sender and recipient match expected
           if (sourceOwner === expectedSender && destOwner === expectedRecipient) {
