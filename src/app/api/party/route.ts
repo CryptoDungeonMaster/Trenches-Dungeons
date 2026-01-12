@@ -88,19 +88,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/party - Create a new party
-const createPartySchema = z.object({
-  leaderAddress: z.string().min(32).max(44),
-  leaderName: z.string().min(1).max(20).optional(),
-  maxSize: z.number().int().min(2).max(4).default(4),
-  lootDistribution: z.enum(["ffa", "round_robin", "need_greed"]).default("ffa"),
-  difficulty: z.enum(["normal", "hard", "nightmare"]).default("normal"),
+// POST /api/party - Create or join a party
+const actionSchema = z.object({
+  action: z.enum(["create", "join"]),
+  leader: z.string().min(32).max(44).optional(),
+  player: z.string().min(32).max(44).optional(),
+  code: z.string().min(4).max(6).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const parseResult = createPartySchema.safeParse(body);
+    const parseResult = actionSchema.safeParse(body);
 
     if (!parseResult.success) {
       return NextResponse.json(
@@ -109,8 +108,86 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const data = parseResult.data;
+    const { action, leader, player, code: partyCode } = parseResult.data;
     const supabase = createServiceRoleSupabaseClient();
+
+    // JOIN action
+    if (action === "join") {
+      if (!partyCode || !player) {
+        return NextResponse.json({ error: "Code and player required for join" }, { status: 400 });
+      }
+
+      // Find party by code
+      const { data: party, error: findError } = await supabase
+        .from(TABLES.parties)
+        .select("*")
+        .eq("code", partyCode.toUpperCase())
+        .eq("status", "waiting")
+        .single();
+
+      if (findError || !party) {
+        return NextResponse.json({ error: "Party not found or already started" }, { status: 404 });
+      }
+
+      // Check if already in this party
+      const { data: existingMember } = await supabase
+        .from(TABLES.partyMembers)
+        .select("*")
+        .eq("party_id", party.id)
+        .eq("player_address", player)
+        .single();
+
+      if (existingMember) {
+        // Already in party, just return info
+        const { data: members } = await supabase
+          .from(TABLES.partyMembers)
+          .select("player_address, is_ready")
+          .eq("party_id", party.id);
+
+        return NextResponse.json({
+          partyId: party.id,
+          code: party.code,
+          members: members?.map(m => ({ address: m.player_address, ready: m.is_ready })) || [],
+        });
+      }
+
+      // Check party size
+      const { count } = await supabase
+        .from(TABLES.partyMembers)
+        .select("*", { count: "exact", head: true })
+        .eq("party_id", party.id);
+
+      if ((count || 0) >= party.max_size) {
+        return NextResponse.json({ error: "Party is full" }, { status: 400 });
+      }
+
+      // Add member
+      await supabase.from(TABLES.partyMembers).insert({
+        party_id: party.id,
+        player_address: player,
+        is_leader: false,
+        is_ready: true,
+      });
+
+      // Get all members
+      const { data: members } = await supabase
+        .from(TABLES.partyMembers)
+        .select("player_address, is_ready")
+        .eq("party_id", party.id);
+
+      return NextResponse.json({
+        partyId: party.id,
+        code: party.code,
+        members: members?.map(m => ({ address: m.player_address, ready: m.is_ready })) || [],
+      });
+    }
+
+    // CREATE action
+    if (!leader) {
+      return NextResponse.json({ error: "Leader required for create" }, { status: 400 });
+    }
+
+    const data = { leaderAddress: leader };
 
     // Check if player is already in a party
     const { data: existingMember } = await supabase
@@ -147,9 +224,9 @@ export async function POST(request: NextRequest) {
       .insert({
         code,
         leader_address: data.leaderAddress,
-        max_size: data.maxSize,
-        loot_distribution: data.lootDistribution,
-        difficulty: data.difficulty,
+        max_size: 4,
+        loot_distribution: "ffa",
+        difficulty: "normal",
       })
       .select()
       .single();
@@ -174,7 +251,9 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      party: { ...party, members: [{ player_address: data.leaderAddress, is_leader: true }] },
+      partyId: party.id,
+      code: party.code,
+      members: [{ address: data.leaderAddress, ready: true }],
       message: "Party created",
     });
   } catch (error: unknown) {

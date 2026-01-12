@@ -250,6 +250,177 @@ function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 // ============================================
 // MAIN PAGE
 // ============================================
+type GameMode = "solo" | "coop" | null;
+
+// Party Lobby Component
+function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId: string) => void }) {
+  const { publicKey } = useWallet();
+  const [mode, setMode] = useState<"create" | "join" | null>(null);
+  const [partyCode, setPartyCode] = useState("");
+  const [partyId, setPartyId] = useState<string | null>(null);
+  const [members, setMembers] = useState<Array<{ address: string; ready: boolean }>>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const createParty = async () => {
+    if (!publicKey) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/party", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create", leader: publicKey.toBase58() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPartyId(data.partyId);
+      setPartyCode(data.code);
+      setMembers([{ address: publicKey.toBase58(), ready: true }]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create party");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const joinParty = async () => {
+    if (!publicKey || !partyCode) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/party", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "join", code: partyCode.toUpperCase(), player: publicKey.toBase58() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPartyId(data.partyId);
+      setMembers(data.members || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to join party");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Poll for party updates
+  useEffect(() => {
+    if (!partyId) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/party?id=${partyId}`);
+        const data = await res.json();
+        if (data.party) {
+          setMembers(data.party.members || []);
+          if (data.party.status === "in_dungeon") {
+            onStart(partyId);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [partyId, onStart]);
+
+  if (!mode) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+        <h3 className="font-display text-2xl text-gold1 mb-6">Co-op Mode</h3>
+        <div className="flex gap-4 justify-center mb-6">
+          <button onClick={() => setMode("create")} className="td-btn td-btn-primary">
+            🏰 Create Party
+          </button>
+          <button onClick={() => setMode("join")} className="td-btn td-btn-secondary">
+            🤝 Join Party
+          </button>
+        </div>
+        <button onClick={onBack} className="td-btn td-btn-ghost text-sm">← Back</button>
+      </motion.div>
+    );
+  }
+
+  if (mode === "create" && !partyId) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+        <h3 className="font-display text-2xl text-gold1 mb-6">Create Party</h3>
+        {error && <p className="text-blood text-sm mb-4">{error}</p>}
+        <button onClick={createParty} disabled={isLoading} className="td-btn td-btn-primary mb-4">
+          {isLoading ? "Creating..." : "🎲 Generate Party Code"}
+        </button>
+        <br />
+        <button onClick={() => setMode(null)} className="td-btn td-btn-ghost text-sm">← Back</button>
+      </motion.div>
+    );
+  }
+
+  if (mode === "join" && !partyId) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+        <h3 className="font-display text-2xl text-gold1 mb-6">Join Party</h3>
+        {error && <p className="text-blood text-sm mb-4">{error}</p>}
+        <input
+          type="text"
+          value={partyCode}
+          onChange={(e) => setPartyCode(e.target.value.toUpperCase())}
+          placeholder="Enter code"
+          maxLength={6}
+          className="w-40 px-4 py-3 bg-bg1 border border-line rounded-lg text-center font-display text-2xl text-gold1 tracking-widest mb-4"
+        />
+        <br />
+        <button onClick={joinParty} disabled={isLoading || partyCode.length < 4} className="td-btn td-btn-primary mb-4">
+          {isLoading ? "Joining..." : "Join Party"}
+        </button>
+        <br />
+        <button onClick={() => setMode(null)} className="td-btn td-btn-ghost text-sm">← Back</button>
+      </motion.div>
+    );
+  }
+
+  // Party lobby - waiting for members
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="text-center">
+      <h3 className="font-display text-2xl text-gold1 mb-2">Party Lobby</h3>
+      <div className="mb-6">
+        <p className="text-text2 text-sm font-ui mb-2">Share this code:</p>
+        <p className="font-display text-4xl text-gold1 tracking-[0.3em] bg-bg1 px-6 py-3 rounded-lg inline-block border border-gold1/30">
+          {partyCode}
+        </p>
+      </div>
+
+      <div className="mb-6">
+        <p className="text-text2 text-sm font-ui mb-3">Party Members ({members.length}/4):</p>
+        <div className="space-y-2 max-w-xs mx-auto">
+          {members.map((m, i) => (
+            <div key={m.address} className="flex items-center gap-3 px-4 py-2 td-panel rounded-lg">
+              <span className="text-lg">{i === 0 ? "👑" : "⚔️"}</span>
+              <span className="text-text0 font-ui text-sm truncate flex-1">
+                {m.address.slice(0, 4)}...{m.address.slice(-4)}
+              </span>
+              <span className={cn("text-xs px-2 py-0.5 rounded", m.ready ? "bg-venom/20 text-venom" : "bg-text2/20 text-text2")}>
+                {m.ready ? "Ready" : "Waiting"}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {members.length >= 2 && members[0]?.address === publicKey?.toBase58() && (
+        <button onClick={() => onStart(partyId!)} className="td-btn td-btn-primary mb-4">
+          🚀 Start Dungeon
+        </button>
+      )}
+      {members.length < 2 && (
+        <p className="text-text2 text-sm font-ui mb-4">Waiting for at least 1 more player...</p>
+      )}
+      <br />
+      <button onClick={onBack} className="td-btn td-btn-ghost text-sm">Leave Party</button>
+    </motion.div>
+  );
+}
+
 export default function LandingPage() {
   const router = useRouter();
   const { publicKey, connected, sendTransaction } = useWallet();
@@ -260,6 +431,8 @@ export default function LandingPage() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [gameMode, setGameMode] = useState<GameMode>(null);
+  const [showModeSelect, setShowModeSelect] = useState(false);
 
   const isFreeEntry = publicKey ? hasFreeEntry(publicKey.toBase58()) : false;
   const canEnter = connected && (isFreeEntry || balance >= ENTRY_FEE);
@@ -267,6 +440,18 @@ export default function LandingPage() {
   const handleConnectWallet = useCallback(() => {
     setWalletModalVisible(true);
   }, [setWalletModalVisible]);
+
+  const handleModeSelect = (mode: GameMode) => {
+    setGameMode(mode);
+    if (mode === "solo") {
+      setShowModeSelect(false);
+    }
+  };
+
+  const handlePartyStart = async (partyId: string) => {
+    localStorage.setItem("td_party", partyId);
+    router.push(`/dungeon?party=${partyId}`);
+  };
 
   const handleEnter = useCallback(async () => {
     if (!publicKey || !connected) return;
@@ -459,36 +644,99 @@ export default function LandingPage() {
           )}
         </AnimatePresence>
 
-        {/* Gate */}
-        <DungeonGate canEnter={canEnter} isProcessing={isProcessing} connected={connected} onClick={handleEnter} onConnect={handleConnectWallet} />
+        {/* Game Mode Selection or Gate */}
+        <AnimatePresence mode="wait">
+          {gameMode === "coop" ? (
+            <motion.div key="coop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              <PartyLobby onBack={() => setGameMode(null)} onStart={handlePartyStart} />
+            </motion.div>
+          ) : showModeSelect ? (
+            <motion.div key="modes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center">
+              <h3 className="font-display text-2xl text-gold1 mb-6">Select Mode</h3>
+              
+              <div className="flex gap-6 justify-center mb-8">
+                {/* Solo Mode */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => { handleModeSelect("solo"); handleEnter(); }}
+                  disabled={isProcessing || !canEnter}
+                  className="group relative"
+                >
+                  <div className="w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 border-transparent hover:border-gold1/50 transition-all">
+                    <span className="text-5xl">🗡️</span>
+                    <span className="font-display text-lg text-text0">Solo</span>
+                    <span className="text-xs text-text2 font-ui">Face the dungeon alone</span>
+                  </div>
+                </motion.button>
 
-        {/* CTA text */}
-        <div className="text-center mt-6">
-          <motion.p
-            animate={{ opacity: [0.6, 1, 0.6] }}
-            transition={{ duration: 2.5, repeat: Infinity }}
-            className={cn("font-display tracking-widest uppercase text-sm", canEnter ? "text-gold1" : "text-text2")}
-          >
-            Enter the Trenches
-          </motion.p>
+                {/* Co-op Mode */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => handleModeSelect("coop")}
+                  disabled={!connected}
+                  className="group relative"
+                >
+                  <div className="w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 border-transparent hover:border-arcane/50 transition-all">
+                    <span className="text-5xl">⚔️</span>
+                    <span className="font-display text-lg text-text0">Co-op</span>
+                    <span className="text-xs text-text2 font-ui">Battle with friends</span>
+                  </div>
+                </motion.button>
+              </div>
 
-          <div className="mt-2 h-5">
-            {!connected ? (
-              <p className="text-text2 text-sm font-ui">Connect wallet to play for real</p>
-            ) : isFreeEntry ? (
-              <p className="text-venom text-sm font-ui">🎖️ Admin Access — Free Entry</p>
-            ) : balance < ENTRY_FEE ? (
-              <p className="text-blood text-sm font-ui">Need {ENTRY_FEE} TND • You have {balance.toFixed(0)} TND</p>
-            ) : (
-              <p className="text-text2 text-sm font-ui">{ENTRY_FEE} TND entry fee</p>
-            )}
-          </div>
-        </div>
+              <div className="h-5 mb-4">
+                {!connected ? (
+                  <p className="text-text2 text-sm font-ui">Connect wallet to play for real</p>
+                ) : isFreeEntry ? (
+                  <p className="text-venom text-sm font-ui">🎖️ Admin Access — Free Entry</p>
+                ) : balance < ENTRY_FEE ? (
+                  <p className="text-blood text-sm font-ui">Need {ENTRY_FEE} TND • You have {balance.toFixed(0)} TND</p>
+                ) : (
+                  <p className="text-text2 text-sm font-ui">{ENTRY_FEE} TND entry fee per player</p>
+                )}
+              </div>
 
-        {/* Demo button */}
-        <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} onClick={() => router.push("/dungeon?demo=true")} className="mt-6 td-btn td-btn-secondary">
-          🎮 Play Free Demo
-        </motion.button>
+              <button onClick={() => setShowModeSelect(false)} className="td-btn td-btn-ghost text-sm">← Back</button>
+            </motion.div>
+          ) : (
+            <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              {/* Gate */}
+              <DungeonGate canEnter={canEnter} isProcessing={isProcessing} connected={connected} onClick={() => setShowModeSelect(true)} onConnect={handleConnectWallet} />
+
+              {/* CTA text */}
+              <div className="text-center mt-6">
+                <motion.p
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                  className={cn("font-display tracking-widest uppercase text-sm", canEnter || !connected ? "text-gold1" : "text-text2")}
+                >
+                  {connected ? "Choose Your Path" : "Enter the Trenches"}
+                </motion.p>
+
+                <div className="mt-2 h-5">
+                  {!connected ? (
+                    <p className="text-text2 text-sm font-ui">Connect wallet to play for real</p>
+                  ) : isFreeEntry ? (
+                    <p className="text-venom text-sm font-ui">🎖️ Admin Access — Free Entry</p>
+                  ) : balance < ENTRY_FEE ? (
+                    <p className="text-blood text-sm font-ui">Need {ENTRY_FEE} TND • You have {balance.toFixed(0)} TND</p>
+                  ) : (
+                    <p className="text-text2 text-sm font-ui">{ENTRY_FEE} TND entry fee</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Demo button - always visible */}
+        {!showModeSelect && gameMode !== "coop" && (
+          <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} onClick={() => router.push("/dungeon?demo=true")} className="mt-6 td-btn td-btn-secondary">
+            🎮 Play Free Demo
+          </motion.button>
+        )}
 
         {/* Features */}
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="flex flex-wrap justify-center gap-4 mt-12">
