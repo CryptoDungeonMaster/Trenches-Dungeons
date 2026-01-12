@@ -284,6 +284,31 @@ function PartyLobby({
   const [hasPaid, setHasPaid] = useState(isFreeEntry);
   const [isLeader, setIsLeader] = useState(false);
 
+  // Check for existing party on mount
+  useEffect(() => {
+    if (!publicKey) return;
+    
+    const checkExistingParty = async () => {
+      try {
+        const res = await fetch(`/api/party?player=${publicKey.toBase58()}`);
+        const data = await res.json();
+        
+        if (data.party && data.party.status === "lobby") {
+          setPartyId(data.party.id);
+          setPartyCode(data.party.code);
+          setMembers(data.party.members || []);
+          setIsLeader(data.party.leader_address === publicKey.toBase58());
+          localStorage.setItem("td_party", data.party.id);
+          onPartyChange(data.party.id);
+        }
+      } catch {
+        // Ignore errors - user just doesn't have a party
+      }
+    };
+    
+    checkExistingParty();
+  }, [publicKey, onPartyChange]);
+
   const createParty = async () => {
     if (!publicKey) return;
     setIsLoading(true);
@@ -312,8 +337,24 @@ function PartyLobby({
       });
       const data = await res.json();
       if (!res.ok) {
-        // If already in a party, clear old data and force retry
-        if (data.error?.includes("Already in a party")) {
+        // If already in a party, fetch that party's info instead
+        if (data.error?.includes("Already in a party") || data.error?.includes("already in")) {
+          // Try to get the existing party
+          const existingRes = await fetch(`/api/party?player=${publicKey.toBase58()}`);
+          const existingData = await existingRes.json();
+          
+          if (existingData.party) {
+            setPartyId(existingData.party.id);
+            setPartyCode(existingData.party.code);
+            setMembers(existingData.party.members || []);
+            setIsLeader(existingData.party.leader_address === publicKey.toBase58());
+            localStorage.setItem("td_party", existingData.party.id);
+            onPartyChange(existingData.party.id);
+            setError("You're already in a party! Showing your current party.");
+            return;
+          }
+          
+          // If can't find existing party, force cleanup and retry
           localStorage.removeItem("td_party");
           const retryRes = await fetch("/api/party", {
             method: "POST",
