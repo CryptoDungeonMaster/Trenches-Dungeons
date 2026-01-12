@@ -7,7 +7,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { PublicKey, Transaction } from "@solana/web3.js";
-import { getAssociatedTokenAddress, createTransferInstruction, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { hasFreeEntry } from "@/lib/admins";
@@ -18,7 +18,7 @@ const TOKEN_MINT = new PublicKey(
   process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump"
 );
 const TREASURY_WALLET = new PublicKey(
-  process.env.NEXT_PUBLIC_TREASURY_WALLET || "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA"
+  process.env.NEXT_PUBLIC_TREASURY_WALLET || "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S"
 );
 const ENTRY_FEE = 100;
 
@@ -295,9 +295,28 @@ export default function LandingPage() {
 
       // Get treasury ATA
       const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
+      console.log("[Entry] Treasury ATA:", treasuryATA.toBase58());
+
+      // Check if treasury ATA exists, if not create it
+      const transaction = new Transaction();
+      const treasuryATAInfo = await connection.getAccountInfo(treasuryATA);
+      
+      if (!treasuryATAInfo) {
+        console.log("[Entry] Creating treasury ATA...");
+        transaction.add(
+          createAssociatedTokenAccountInstruction(
+            publicKey, // payer
+            treasuryATA, // ata address
+            TREASURY_WALLET, // owner
+            TOKEN_MINT, // mint
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
 
       const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, tokenDecimals));
-      const transaction = new Transaction().add(
+      transaction.add(
         createTransferInstruction(playerTokenAccount, treasuryATA, publicKey, transferAmount, [], TOKEN_PROGRAM_ID)
       );
 

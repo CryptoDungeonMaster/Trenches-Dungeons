@@ -18,7 +18,7 @@ export const TOKEN_MINT_ADDRESS =
  * Treasury wallet that receives entry fees
  */
 export const TREASURY_PUBLIC_KEY =
-  process.env.NEXT_PUBLIC_TREASURY_WALLET || "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA";
+  process.env.NEXT_PUBLIC_TREASURY_WALLET || "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S";
 
 /**
  * RPC endpoint for Solana connections
