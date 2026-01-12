@@ -156,7 +156,19 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (findError || !party) {
-        return NextResponse.json({ error: "Party not found or already started" }, { status: 404 });
+        // Try to find any party with this code for better error message
+        const { data: anyParty } = await supabase
+          .from(TABLES.parties)
+          .select("id, code, status")
+          .eq("code", partyCode.toUpperCase())
+          .single();
+        
+        if (anyParty) {
+          return NextResponse.json({ 
+            error: `Party found but status is '${anyParty.status}' - expected 'waiting'` 
+          }, { status: 404 });
+        }
+        return NextResponse.json({ error: "Party not found. Check the code and try again." }, { status: 404 });
       }
 
       // Check if already in this party
@@ -303,6 +315,7 @@ export async function POST(request: NextRequest) {
       .insert({
         code,
         leader_address: data.leaderAddress,
+        status: "waiting",
         max_size: 4,
         loot_distribution: "ffa",
         difficulty: "normal",
