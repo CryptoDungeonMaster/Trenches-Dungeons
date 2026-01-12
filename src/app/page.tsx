@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PublicKey, Transaction } from "@solana/web3.js";
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
@@ -63,12 +64,23 @@ function EmberParticles() {
 // ============================================
 // DUNGEON GATE
 // ============================================
-function DungeonGate({ canEnter, isProcessing, onClick }: {
+function DungeonGate({ canEnter, isProcessing, connected, onClick, onConnect }: {
   canEnter: boolean;
   isProcessing: boolean;
+  connected: boolean;
   onClick: () => void;
+  onConnect: () => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+
+  const handleClick = () => {
+    if (isProcessing) return;
+    if (!connected) {
+      onConnect();
+    } else if (canEnter) {
+      onClick();
+    }
+  };
 
   return (
     <motion.div
@@ -78,11 +90,11 @@ function DungeonGate({ canEnter, isProcessing, onClick }: {
       className="relative cursor-pointer"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={canEnter && !isProcessing ? onClick : undefined}
+      onClick={handleClick}
     >
       {/* Gate glow */}
       <motion.div
-        animate={{ opacity: isHovered && canEnter ? 0.4 : 0.15, scale: isHovered && canEnter ? 1.1 : 1 }}
+        animate={{ opacity: isHovered ? 0.4 : 0.15, scale: isHovered ? 1.1 : 1 }}
         className="absolute inset-0 bg-gold1 rounded-t-[80px] blur-3xl -z-10"
       />
 
@@ -94,7 +106,7 @@ function DungeonGate({ canEnter, isProcessing, onClick }: {
           <div className="absolute inset-3 top-4 rounded-t-[70px] bg-gradient-to-b from-bg1 to-bg0 overflow-hidden">
             {/* Door panels */}
             <motion.div
-              animate={{ x: isHovered && canEnter ? "-15%" : 0 }}
+              animate={{ x: isHovered ? "-15%" : 0 }}
               transition={{ type: "spring", stiffness: 100 }}
               className="absolute inset-0 left-0 w-1/2 bg-gradient-to-r from-[#3d3020] to-[#2d2518] border-r border-[#1a1510]"
             >
@@ -105,7 +117,7 @@ function DungeonGate({ canEnter, isProcessing, onClick }: {
               <div className="absolute top-[70%] left-0 right-0 h-3 bg-gradient-to-b from-[#5a5a5f] to-[#3a3a3f] border-y border-[#2a2a2f]" />
             </motion.div>
             <motion.div
-              animate={{ x: isHovered && canEnter ? "15%" : 0 }}
+              animate={{ x: isHovered ? "15%" : 0 }}
               transition={{ type: "spring", stiffness: 100 }}
               className="absolute inset-0 right-0 left-1/2 bg-gradient-to-l from-[#3d3020] to-[#2d2518] border-l border-[#1a1510]"
             >
@@ -117,12 +129,15 @@ function DungeonGate({ canEnter, isProcessing, onClick }: {
             </motion.div>
 
             <AnimatePresence>
-              {isHovered && canEnter && (
+              {isHovered && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 bg-gradient-to-t from-gold1/30 via-gold1/10 to-transparent"
+                  className={cn(
+                    "absolute inset-0 bg-gradient-to-t via-transparent to-transparent",
+                    canEnter ? "from-gold1/30 via-gold1/10" : connected ? "from-blood/20 via-blood/5" : "from-arcane/30 via-arcane/10"
+                  )}
                 />
               )}
             </AnimatePresence>
@@ -153,7 +168,7 @@ function DungeonGate({ canEnter, isProcessing, onClick }: {
           </motion.div>
         )}
 
-        {!canEnter && !isProcessing && (
+        {connected && !canEnter && !isProcessing && (
           <div className="absolute inset-0 bg-bg0/50 rounded-t-[80px]" />
         )}
       </div>
@@ -239,7 +254,8 @@ export default function LandingPage() {
   const router = useRouter();
   const { publicKey, connected, sendTransaction } = useWallet();
   const { connection } = useConnection();
-  const { balance, loading: balanceLoading, decimals, refresh: refreshBalance } = useTokenBalance();
+  const { setVisible: setWalletModalVisible } = useWalletModal();
+  const { balance, loading: balanceLoading, refresh: refreshBalance } = useTokenBalance();
 
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -247,6 +263,10 @@ export default function LandingPage() {
 
   const isFreeEntry = publicKey ? hasFreeEntry(publicKey.toBase58()) : false;
   const canEnter = connected && (isFreeEntry || balance >= ENTRY_FEE);
+
+  const handleConnectWallet = useCallback(() => {
+    setWalletModalVisible(true);
+  }, [setWalletModalVisible]);
 
   const handleEnter = useCallback(async () => {
     if (!publicKey || !connected) return;
@@ -421,7 +441,7 @@ export default function LandingPage() {
         </AnimatePresence>
 
         {/* Gate */}
-        <DungeonGate canEnter={canEnter} isProcessing={isProcessing} onClick={handleEnter} />
+        <DungeonGate canEnter={canEnter} isProcessing={isProcessing} connected={connected} onClick={handleEnter} onConnect={handleConnectWallet} />
 
         {/* CTA text */}
         <div className="text-center mt-6">
