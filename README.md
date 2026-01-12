@@ -254,3 +254,6 @@ Built with:
 ---
 
 **⚔️ Enter the Trenches. Survive. Claim your glory. ⚔️**
+
+---
+*Made with 💀 by CryptoDungeonMaster*
