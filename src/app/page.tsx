@@ -668,7 +668,7 @@ export default function LandingPage() {
     setError(null);
     
     try {
-      // Start the party dungeon (uses action: "start" and playerAddress)
+      // Start the party dungeon - this now also creates the game state in the API
       const res = await fetch("/api/party", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -682,35 +682,7 @@ export default function LandingPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start dungeon");
       
-      // Initialize the multiplayer game state
-      const partyRes = await fetch(`/api/party?id=${partyId}`);
-      const partyData = await partyRes.json();
-      console.log("[PartyStart] Party data:", partyData);
-      
-      if (partyData.party?.members && partyData.party.members.length > 0) {
-        const players = partyData.party.members.map((m: { address: string }, i: number) => ({
-          address: m.address,
-          name: `Player ${i + 1}`,
-          characterClass: "warrior",
-        }));
-        
-        console.log("[PartyStart] Creating game with players:", players);
-        
-        const gameRes = await fetch("/api/party/game", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ partyId, players }),
-        });
-        
-        const gameData = await gameRes.json();
-        console.log("[PartyStart] Game creation response:", gameData);
-        
-        if (!gameRes.ok && !gameData.gameState) {
-          throw new Error(gameData.error || "Failed to create game state");
-        }
-      } else {
-        throw new Error("No party members found");
-      }
+      console.log("[PartyStart] Dungeon started, game state created in API");
       
       localStorage.setItem("td_party", partyId);
       setCurrentPartyId(partyId);

@@ -567,20 +567,110 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: "Only leader can start" }, { status: 403 });
       }
 
+      const partyId = member.party_id;
+
       // Check all members ready
       const { data: notReady } = await supabase
         .from(TABLES.partyMembers)
         .select("id")
-        .eq("party_id", member.party_id)
+        .eq("party_id", partyId)
         .eq("is_ready", false);
 
       if (notReady && notReady.length > 0) {
         return NextResponse.json({ error: "Not all members are ready" }, { status: 400 });
       }
 
+      // Get all party members for game state initialization
+      const { data: partyMembers } = await supabase
+        .from(TABLES.partyMembers)
+        .select("player_address, is_leader")
+        .eq("party_id", partyId);
+
+      if (!partyMembers || partyMembers.length === 0) {
+        return NextResponse.json({ error: "No party members found" }, { status: 400 });
+      }
+
       // Generate dungeon seed
       const seed = randomBytes(16).toString("hex");
 
+      // Check if game state already exists
+      const { data: existingGame } = await supabase
+        .from(TABLES.partyGameState)
+        .select("id")
+        .eq("party_id", partyId)
+        .single();
+
+      if (!existingGame) {
+        // Initialize player states with class defaults
+        const classDefaults: Record<string, { health: number; mana: number }> = {
+          warrior: { health: 120, mana: 30 },
+          mage: { health: 70, mana: 100 },
+          rogue: { health: 90, mana: 50 },
+        };
+
+        const playersState = partyMembers.map((m, index) => ({
+          address: m.player_address,
+          name: `Player ${index + 1}`,
+          characterClass: "warrior",
+          health: classDefaults["warrior"].health,
+          maxHealth: classDefaults["warrior"].health,
+          mana: classDefaults["warrior"].mana,
+          maxMana: classDefaults["warrior"].mana,
+          gold: 0,
+          score: 0,
+          items: [],
+          isReady: true,
+          isAlive: true,
+        }));
+
+        // First player (leader) goes first
+        const firstPlayer = playersState[0].address;
+
+        // Create initial encounter
+        const initialEncounter = {
+          id: "intro",
+          type: "dialogue",
+          title: "The Dungeon Entrance",
+          description: "Your party stands at the entrance of the ancient dungeon. Darkness awaits within, but so does treasure and glory. Work together to survive!",
+          options: [
+            { id: "enter", text: "🚪 Enter the dungeon together" },
+            { id: "prepare", text: "🎒 Check equipment first" },
+          ],
+        };
+
+        // Create game state BEFORE updating party status
+        const { error: gameError } = await supabase
+          .from(TABLES.partyGameState)
+          .insert({
+            party_id: partyId,
+            current_floor: 1,
+            current_room: 0,
+            dungeon_seed: seed,
+            current_turn_player: firstPlayer,
+            turn_number: 1,
+            turn_phase: "dialogue",
+            players_state: playersState,
+            current_encounter: initialEncounter,
+            combat_state: null,
+            action_log: [{
+              id: randomBytes(8).toString("hex"),
+              player: "system",
+              action: "game_start",
+              result: "The party enters the dungeon!",
+              timestamp: Date.now(),
+            }],
+            status: "active",
+          });
+
+        if (gameError) {
+          console.error("[Party Start] Failed to create game state:", gameError);
+          return NextResponse.json({ error: `Failed to initialize game: ${gameError.message}` }, { status: 500 });
+        }
+
+        console.log("[Party Start] Game state created for party:", partyId);
+      }
+
+      // NOW update party status to in_dungeon (game state already exists)
       const { error } = await supabase
         .from(TABLES.parties)
         .update({
@@ -589,13 +679,13 @@ export async function PUT(request: NextRequest) {
           current_floor: 1,
           current_room: 0,
         })
-        .eq("id", member.party_id);
+        .eq("id", partyId);
 
       if (error) {
         return NextResponse.json({ error: "Failed to start dungeon" }, { status: 500 });
       }
 
-      return NextResponse.json({ message: "Dungeon started", seed });
+      return NextResponse.json({ message: "Dungeon started", seed, partyId });
     }
 
     // Handle kick action (leader only)
