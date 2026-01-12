@@ -14,6 +14,7 @@ export const TABLES = {
   playerCharacters: "td_player_characters",
   parties: "td_parties",
   partyMembers: "td_party_members",
+  partyGameState: "td_party_game_state",
   lootDrops: "td_loot_drops",
 } as const;
 

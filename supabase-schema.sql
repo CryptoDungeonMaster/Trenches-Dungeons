@@ -230,6 +230,55 @@ CREATE INDEX IF NOT EXISTS idx_td_party_members_party ON td_party_members(party_
 CREATE INDEX IF NOT EXISTS idx_td_party_members_player ON td_party_members(player_address);
 
 -- ============================================
+-- MULTIPLAYER GAME STATE (Real-time sync)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS td_party_game_state (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  party_id UUID NOT NULL REFERENCES td_parties(id) ON DELETE CASCADE,
+  
+  -- Dungeon progress
+  current_floor INTEGER NOT NULL DEFAULT 1,
+  current_room INTEGER NOT NULL DEFAULT 0,
+  dungeon_seed TEXT NOT NULL,
+  
+  -- Turn management
+  current_turn_player TEXT, -- wallet address of whose turn it is
+  turn_number INTEGER NOT NULL DEFAULT 1,
+  turn_phase TEXT NOT NULL DEFAULT 'exploration' CHECK (turn_phase IN ('exploration', 'combat', 'dialogue', 'loot', 'waiting')),
+  
+  -- Players state (JSON array)
+  -- [{address, name, class, health, maxHealth, mana, maxMana, gold, items, position}]
+  players_state JSONB NOT NULL DEFAULT '[]'::jsonb,
+  
+  -- Current encounter (JSON)
+  -- {type, enemies[], dialogue, options[], rewards}
+  current_encounter JSONB,
+  
+  -- Combat state (JSON)
+  -- {enemies[], turnOrder[], currentCombatTurn, roundNumber}
+  combat_state JSONB,
+  
+  -- Action log (last 20 actions for replay/display)
+  -- [{player, action, result, timestamp}]
+  action_log JSONB NOT NULL DEFAULT '[]'::jsonb,
+  
+  -- Game status
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'victory', 'defeat', 'abandoned')),
+  
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  
+  CONSTRAINT unique_party_game UNIQUE (party_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_td_party_game_party ON td_party_game_state(party_id);
+CREATE INDEX IF NOT EXISTS idx_td_party_game_status ON td_party_game_state(status);
+
+-- Enable realtime for this table
+ALTER PUBLICATION supabase_realtime ADD TABLE td_party_game_state;
+
+-- ============================================
 -- LOOT DROP LOG (for tracking/analytics)
 -- ============================================
 
