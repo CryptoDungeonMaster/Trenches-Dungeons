@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyTokenTransfer } from "@/lib/solana";
-import { getGameSettings } from "@/lib/settings";
 import { isSignatureUsed, markSignatureUsed, createSession } from "@/lib/db-supabase";
 import { createSessionToken } from "@/lib/jwt";
 
@@ -75,15 +74,12 @@ export async function POST(request: NextRequest) {
 
     const { signature, playerPubkey } = parseResult.data;
 
-    // Get game settings
-    const settings = await getGameSettings();
+    // Treasury wallet - hardcoded for reliability
+    const TREASURY_WALLET = process.env.NEXT_PUBLIC_TREASURY_WALLET || "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S";
+    const ENTRY_FEE = BigInt(100000000); // 100 TND with 6 decimals
 
-    if (!settings.treasuryPublicKey) {
-      return NextResponse.json(
-        { error: "Treasury not configured. Contact admin." },
-        { status: 503 }
-      );
-    }
+    console.log("[verify-entry] Checking transfer to treasury:", TREASURY_WALLET);
+    console.log("[verify-entry] Expected sender:", playerPubkey);
 
     // SECURITY CHECK 1: Check if signature has already been used
     const alreadyUsed = await isSignatureUsed(signature);
@@ -99,8 +95,8 @@ export async function POST(request: NextRequest) {
     const verificationResult = await verifyTokenTransfer(
       signature,
       playerPubkey,
-      settings.treasuryPublicKey,
-      settings.entryFee,
+      TREASURY_WALLET,
+      ENTRY_FEE,
       10 // Transaction must be within last 10 minutes
     );
 
