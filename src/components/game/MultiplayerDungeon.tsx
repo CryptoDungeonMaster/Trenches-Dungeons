@@ -532,6 +532,7 @@ export default function MultiplayerDungeon({ partyId }: MultiplayerDungeonProps)
   const {
     gameState,
     isLoading,
+    isWaitingForGame,
     error,
     isMyTurn,
     myPlayer,
@@ -585,6 +586,11 @@ export default function MultiplayerDungeon({ partyId }: MultiplayerDungeonProps)
   // Loading state
   if (isLoading) {
     return <LoadingScreen message="Connecting to party..." />;
+  }
+
+  // Waiting for game to be created (party member joined before leader started)
+  if (isWaitingForGame) {
+    return <LoadingScreen message="Waiting for party leader to start the game..." />;
   }
 
   // Error state

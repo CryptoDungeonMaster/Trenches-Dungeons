@@ -86,6 +86,10 @@ interface UseMultiplayerGameOptions {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// Retry configuration
+const MAX_RETRIES = 15; // 15 retries * 2 seconds = 30 seconds max wait
+const RETRY_DELAY = 2000; // 2 seconds between retries
+
 export function useMultiplayerGame({
   partyId,
   playerAddress,
@@ -94,25 +98,51 @@ export function useMultiplayerGame({
 }: UseMultiplayerGameOptions) {
   const [gameState, setGameState] = useState<MultiplayerGameState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isWaitingForGame, setIsWaitingForGame] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isMyTurn, setIsMyTurn] = useState(false);
   
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient(supabaseUrl, supabaseAnonKey));
+  const retryCountRef = useRef(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Fetch initial game state
+  // Fetch initial game state with retry logic for 404s
   const fetchGameState = useCallback(async () => {
     try {
       const res = await fetch(`/api/party/game?partyId=${partyId}`);
+      
+      if (res.status === 404) {
+        // Game not found - might not be created yet (race condition)
+        // Retry a few times before giving up
+        if (retryCountRef.current < MAX_RETRIES) {
+          retryCountRef.current++;
+          setIsWaitingForGame(true);
+          setIsLoading(false);
+          console.log(`[MP] Game not found, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);
+          
+          retryTimeoutRef.current = setTimeout(() => {
+            fetchGameState();
+          }, RETRY_DELAY);
+          return;
+        }
+        // Exhausted retries
+        throw new Error("Game not found. The party leader may not have started the game yet.");
+      }
+      
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to fetch game state");
       }
+      
       const data = await res.json();
+      retryCountRef.current = 0; // Reset retry count on success
+      setIsWaitingForGame(false);
       setGameState(data.gameState);
       setIsMyTurn(data.gameState?.currentTurnPlayer === playerAddress);
       onGameUpdate?.(data.gameState);
     } catch (err) {
+      setIsWaitingForGame(false);
       setError(err instanceof Error ? err.message : "Failed to load game");
     } finally {
       setIsLoading(false);
@@ -147,6 +177,32 @@ export function useMultiplayerGame({
           }
         }
       )
+      // Also subscribe to INSERT events so we catch game creation
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "td_party_game_state",
+          filter: `party_id=eq.${partyId}`,
+        },
+        (payload) => {
+          // Game was just created - load it
+          console.log("[MP] Game created, loading state...");
+          const newState = transformDbToState(payload.new);
+          retryCountRef.current = 0;
+          setIsWaitingForGame(false);
+          setGameState(newState);
+          setIsMyTurn(newState.currentTurnPlayer === playerAddress);
+          onGameUpdate?.(newState);
+          
+          // Clear any pending retry
+          if (retryTimeoutRef.current) {
+            clearTimeout(retryTimeoutRef.current);
+            retryTimeoutRef.current = null;
+          }
+        }
+      )
       .subscribe();
 
     channelRef.current = channel;
@@ -157,6 +213,11 @@ export function useMultiplayerGame({
     // Cleanup
     return () => {
       channel.unsubscribe();
+      // Clear any pending retry timeouts
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+        retryTimeoutRef.current = null;
+      }
     };
   }, [partyId, playerAddress, fetchGameState, onGameUpdate, onPlayerAction]);
 
@@ -211,6 +272,7 @@ export function useMultiplayerGame({
   return {
     gameState,
     isLoading,
+    isWaitingForGame,
     error,
     isMyTurn,
     myPlayer: getMyPlayer(),
