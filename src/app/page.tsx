@@ -274,7 +274,24 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
         body: JSON.stringify({ action: "create", leader: publicKey.toBase58() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        // If already in a party, clear old data and retry once
+        if (data.error?.includes("Already in a party")) {
+          localStorage.removeItem("td_party");
+          const retryRes = await fetch("/api/party", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "create", leader: publicKey.toBase58() }),
+          });
+          const retryData = await retryRes.json();
+          if (!retryRes.ok) throw new Error(retryData.error);
+          setPartyId(retryData.partyId);
+          setPartyCode(retryData.code);
+          setMembers([{ address: publicKey.toBase58(), ready: true }]);
+          return;
+        }
+        throw new Error(data.error);
+      }
       setPartyId(data.partyId);
       setPartyCode(data.code);
       setMembers([{ address: publicKey.toBase58(), ready: true }]);
@@ -296,7 +313,23 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
         body: JSON.stringify({ action: "join", code: partyCode.toUpperCase(), player: publicKey.toBase58() }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        // If already in a party, clear old data and retry once
+        if (data.error?.includes("Already in a party")) {
+          localStorage.removeItem("td_party");
+          const retryRes = await fetch("/api/party", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "join", code: partyCode.toUpperCase(), player: publicKey.toBase58() }),
+          });
+          const retryData = await retryRes.json();
+          if (!retryRes.ok) throw new Error(retryData.error);
+          setPartyId(retryData.partyId);
+          setMembers(retryData.members || []);
+          return;
+        }
+        throw new Error(data.error);
+      }
       setPartyId(data.partyId);
       setMembers(data.members || []);
     } catch (err) {
@@ -439,13 +472,39 @@ export default function LandingPage() {
   const isFreeEntry = publicKey ? hasFreeEntry(publicKey.toBase58()) : false;
   const canEnter = connected && (isFreeEntry || balance >= ENTRY_FEE);
 
-  // Check for existing party on mount
+  // Check for existing party on mount and validate it still exists
   useEffect(() => {
-    const savedParty = localStorage.getItem("td_party");
-    if (savedParty) {
-      setCurrentPartyId(savedParty);
-    }
-  }, []);
+    const validateParty = async () => {
+      const savedParty = localStorage.getItem("td_party");
+      if (!savedParty) return;
+      
+      try {
+        const res = await fetch(`/api/party?id=${savedParty}`);
+        const data = await res.json();
+        
+        // If party exists and user is still a member, keep it
+        if (data.party && publicKey) {
+          const isMember = data.party.members?.some(
+            (m: { player_address: string }) => m.player_address === publicKey.toBase58()
+          );
+          if (isMember) {
+            setCurrentPartyId(savedParty);
+            return;
+          }
+        }
+        
+        // Party doesn't exist or user not in it - clear localStorage
+        localStorage.removeItem("td_party");
+        setCurrentPartyId(null);
+      } catch {
+        // Error fetching - clear to be safe
+        localStorage.removeItem("td_party");
+        setCurrentPartyId(null);
+      }
+    };
+    
+    validateParty();
+  }, [publicKey]);
 
   const handleLeaveParty = async () => {
     if (!currentPartyId || !publicKey) return;

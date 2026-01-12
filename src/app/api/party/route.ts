@@ -151,6 +151,34 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      // Check if player is in a different party and clean up if stale
+      const { data: playerInOtherParty } = await supabase
+        .from(TABLES.partyMembers)
+        .select("party_id")
+        .eq("player_address", player)
+        .neq("party_id", party.id)
+        .single();
+      
+      if (playerInOtherParty) {
+        // Check if that party is still active
+        const { data: otherParty } = await supabase
+          .from(TABLES.parties)
+          .select("id, status")
+          .eq("id", playerInOtherParty.party_id)
+          .single();
+        
+        if (!otherParty || otherParty.status === "completed" || otherParty.status === "disbanded") {
+          // Clean up stale membership
+          await supabase
+            .from(TABLES.partyMembers)
+            .delete()
+            .eq("player_address", player)
+            .eq("party_id", playerInOtherParty.party_id);
+        } else {
+          return NextResponse.json({ error: "Already in another party. Leave current party first." }, { status: 400 });
+        }
+      }
+
       // Check party size
       const { count } = await supabase
         .from(TABLES.partyMembers)
@@ -197,10 +225,26 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingMember) {
-      return NextResponse.json(
-        { error: "Already in a party. Leave current party first." },
-        { status: 400 }
-      );
+      // Check if that party is still active
+      const { data: existingParty } = await supabase
+        .from(TABLES.parties)
+        .select("id, status")
+        .eq("id", existingMember.party_id)
+        .single();
+      
+      // If party doesn't exist or is completed/disbanded, clean up the stale member record
+      if (!existingParty || existingParty.status === "completed" || existingParty.status === "disbanded") {
+        await supabase
+          .from(TABLES.partyMembers)
+          .delete()
+          .eq("player_address", data.leaderAddress);
+      } else {
+        // Party is still active, don't allow creating new one
+        return NextResponse.json(
+          { error: "Already in a party. Leave current party first." },
+          { status: 400 }
+        );
+      }
     }
 
     // Generate unique party code
