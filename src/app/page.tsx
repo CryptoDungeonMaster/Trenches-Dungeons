@@ -324,6 +324,7 @@ function PartyLobby({
           setPartyCode(retryData.code);
           setMembers([{ address: publicKey.toBase58(), ready: true }]);
           setIsLeader(true);
+          localStorage.setItem("td_party", retryData.partyId);
           return;
         }
         throw new Error(data.error);
@@ -332,6 +333,8 @@ function PartyLobby({
       setPartyCode(data.code);
       setMembers([{ address: publicKey.toBase58(), ready: true }]);
       setIsLeader(true);
+      // Save to localStorage so party panel shows
+      localStorage.setItem("td_party", data.partyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create party");
     } finally {
@@ -379,12 +382,14 @@ function PartyLobby({
           if (!retryRes.ok) throw new Error(retryData.error);
           setPartyId(retryData.partyId);
           setMembers(retryData.members || []);
+          localStorage.setItem("td_party", retryData.partyId);
           return;
         }
         throw new Error(data.error);
       }
       setPartyId(data.partyId);
       setMembers(data.members || []);
+      localStorage.setItem("td_party", data.partyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join party");
     } finally {
@@ -616,27 +621,6 @@ export default function LandingPage() {
     setError(null);
     
     try {
-      // First, get party members to initialize game state
-      const partyRes = await fetch(`/api/party?id=${partyId}`);
-      const partyData = await partyRes.json();
-      if (!partyRes.ok) throw new Error(partyData.error || "Failed to get party info");
-      
-      // Initialize multiplayer game state with party members
-      const players = partyData.party.members.map((m: { address: string }, i: number) => ({
-        address: m.address,
-        name: `Player ${i + 1}`,
-        characterClass: "warrior", // Default class - could add selection
-      }));
-      
-      const gameRes = await fetch("/api/party/game", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ partyId, players }),
-      });
-      
-      const gameData = await gameRes.json();
-      if (!gameRes.ok) throw new Error(gameData.error || "Failed to initialize game");
-      
       // Update party status to in_dungeon
       const res = await fetch("/api/party", {
         method: "PUT",
@@ -652,6 +636,7 @@ export default function LandingPage() {
       if (!res.ok) throw new Error(data.error || "Failed to start dungeon");
       
       localStorage.setItem("td_party", partyId);
+      setCurrentPartyId(partyId);
       router.push(`/dungeon?party=${partyId}`);
     } catch (err) {
       console.error("Party start error:", err);
@@ -1107,6 +1092,6 @@ export default function LandingPage() {
 
 
       <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
-    </main>
+      </main>
   );
 }

@@ -47,18 +47,17 @@ export async function POST(request: NextRequest) {
 
     const supabase = createServiceRoleSupabaseClient();
 
-    // Check if game already exists
+    // Check if game already exists - if so, return it instead of error
     const { data: existing } = await supabase
       .from(TABLES.partyGameState)
-      .select("id")
+      .select("*")
       .eq("party_id", partyId)
       .single();
 
     if (existing) {
-      return NextResponse.json(
-        { error: "Game already exists for this party" },
-        { status: 400 }
-      );
+      // Game already exists, just return it
+      console.log("[Game] Game already exists for party, returning existing");
+      return NextResponse.json({ gameState: existing, message: "Game already exists" });
     }
 
     // Generate dungeon seed
@@ -129,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error("Create game error:", error);
-      return NextResponse.json({ error: "Failed to create game" }, { status: 500 });
+      return NextResponse.json({ error: `Failed to create game: ${error.message}` }, { status: 500 });
     }
 
     // Update party status to in_dungeon
