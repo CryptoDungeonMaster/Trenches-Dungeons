@@ -138,9 +138,11 @@ export function useMultiplayerGame({
       const data = await res.json();
       retryCountRef.current = 0; // Reset retry count on success
       setIsWaitingForGame(false);
-      setGameState(data.gameState);
-      setIsMyTurn(data.gameState?.currentTurnPlayer === playerAddress);
-      onGameUpdate?.(data.gameState);
+      // Transform the raw DB format to our TypeScript interface
+      const transformed = transformDbToState(data.gameState);
+      setGameState(transformed);
+      setIsMyTurn(transformed?.currentTurnPlayer === playerAddress);
+      onGameUpdate?.(transformed);
     } catch (err) {
       setIsWaitingForGame(false);
       setError(err instanceof Error ? err.message : "Failed to load game");
@@ -260,12 +262,12 @@ export function useMultiplayerGame({
 
   // Helper functions
   const getMyPlayer = useCallback(() => {
-    return gameState?.playersState.find((p) => p.address === playerAddress);
+    return gameState?.playersState?.find((p) => p.address === playerAddress);
   }, [gameState, playerAddress]);
 
   const getCurrentTurnPlayer = useCallback(() => {
-    return gameState?.playersState.find(
-      (p) => p.address === gameState.currentTurnPlayer
+    return gameState?.playersState?.find(
+      (p) => p.address === gameState?.currentTurnPlayer
     );
   }, [gameState]);
 
