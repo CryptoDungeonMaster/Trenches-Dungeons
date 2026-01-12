@@ -7,7 +7,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { PublicKey, Transaction } from "@solana/web3.js";
+import { PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
@@ -320,6 +320,12 @@ export default function LandingPage() {
       // Check if treasury ATA exists, if not create it
       const transaction = new Transaction();
       const treasuryATAInfo = await connection.getAccountInfo(treasuryATA);
+      
+      // Add compute budget for complex transactions (ATA creation + transfer)
+      transaction.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 300000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 })
+      );
       
       if (!treasuryATAInfo) {
         console.log("[Entry] Creating treasury ATA...");

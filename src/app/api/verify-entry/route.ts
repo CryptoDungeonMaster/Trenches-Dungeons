@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyTokenTransfer } from "@/lib/solana";
 import { getGameSettings } from "@/lib/settings";
-import { isSignatureUsed, markSignatureUsed } from "@/lib/db-supabase";
+import { isSignatureUsed, markSignatureUsed, createSession } from "@/lib/db-supabase";
+import { createSessionToken } from "@/lib/jwt";
 
 // Rate limiting: simple in-memory store (use Redis in production)
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
@@ -113,12 +114,43 @@ export async function POST(request: NextRequest) {
     // Mark signature as used (prevent replay)
     await markSignatureUsed(signature, playerPubkey);
 
-    // Return success - client should now call /api/session to create game session
+    // Create game session
+    const seed = Math.floor(Math.random() * 1000000);
+    const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+
+    const session = await createSession({
+      id: crypto.randomUUID(),
+      player: playerPubkey,
+      started_at: new Date().toISOString(),
+      expires_at: expiresAt.toISOString(),
+      entry_sig: signature,
+      status: "active",
+      score: 0,
+      seed: seed.toString(),
+    });
+
+    if (!session) {
+      return NextResponse.json(
+        { error: "Failed to create game session" },
+        { status: 500 }
+      );
+    }
+
+    // Create JWT token for the session
+    const token = await createSessionToken(
+      session.id,
+      playerPubkey,
+      seed.toString(),
+      120 // 2 hours
+    );
+
     return NextResponse.json({
       success: true,
       message: "Payment verified successfully",
-      amount: verificationResult.amount?.toString(),
-      blockTime: verificationResult.blockTime,
+      token,
+      sessionId: session.id,
+      seed,
+      expiresAt: expiresAt.toISOString(),
     });
   } catch (error) {
     console.error("Error in verify-entry:", error);
