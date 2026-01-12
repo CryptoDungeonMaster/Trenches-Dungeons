@@ -105,7 +105,7 @@ export async function verifyTokenTransfer(
   minimumAmount: bigint,
   maxAgeMinutes: number = 10
 ): Promise<TransferValidationResult> {
-  const connection = getConnection("finalized");
+  const connection = getConnection("confirmed");
 
   try {
     // Fetch the transaction with parsed instructions
@@ -113,7 +113,7 @@ export async function verifyTokenTransfer(
       signature,
       {
         maxSupportedTransactionVersion: 0,
-        commitment: "finalized",
+        commitment: "confirmed",
       }
     );
 
@@ -123,7 +123,8 @@ export async function verifyTokenTransfer(
 
     // Check if transaction was successful
     if (tx.meta?.err) {
-      return { valid: false, error: "Transaction failed on-chain" };
+      console.error("[verifyTokenTransfer] Transaction error:", JSON.stringify(tx.meta.err));
+      return { valid: false, error: `Transaction failed on-chain: ${JSON.stringify(tx.meta.err)}` };
     }
 
     // Validate block time is within acceptable range
