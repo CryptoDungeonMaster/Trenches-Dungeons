@@ -21,7 +21,7 @@ export async function initializeDatabase() {
   const defaultSettings = [
     { key: "entryFee", value: "1000000" },
     { key: "rewardAmount", value: "500000" },
-    { key: "treasuryPublicKey", value: "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA" },
+    { key: "treasuryPublicKey", value: "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S" },
     { key: "difficulty", value: "normal" },
     { key: "payoutEnabled", value: "false" },
   ];

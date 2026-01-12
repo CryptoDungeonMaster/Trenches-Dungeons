@@ -9,9 +9,9 @@ export interface GameSettings {
 }
 
 const DEFAULT_SETTINGS: GameSettings = {
-  entryFee: BigInt(1000000), // 1 token with 6 decimals
-  rewardAmount: BigInt(500000), // 0.5 token with 6 decimals
-  treasuryPublicKey: "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA",
+  entryFee: BigInt(100000000), // 100 tokens with 6 decimals
+  rewardAmount: BigInt(50000000), // 50 tokens with 6 decimals
+  treasuryPublicKey: "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S",
   difficulty: "normal",
   payoutEnabled: false,
 };

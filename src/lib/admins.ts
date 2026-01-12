@@ -1,6 +1,6 @@
 // Admin wallets - these get free entry and admin access
 export const ADMIN_WALLETS = [
-  "4mhyTcSHaxV81BxcaoWf5FKNrCY6N9Wc611wi5Ryo5MA", // Treasury/main admin
+  "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S", // Treasury/main admin
   "FyafA5iMiBrbwjYrQRPCyyMPP61HCQzEUwbDa5Jjwhxa",
   "5inT8iwuCZgAX5i1G3dLK6SJnMjZQGvTvqp64j7YJJFk",
 ];
