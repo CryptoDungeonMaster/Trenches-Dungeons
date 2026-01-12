@@ -265,6 +265,7 @@ export default function LandingPage() {
         if (!res.ok) throw new Error(data.error || "Failed to get free entry");
 
         localStorage.setItem("td_session", JSON.stringify({ token: data.token, sessionId: data.sessionId, seed: data.seed, expiresAt: data.expiresAt }));
+        localStorage.setItem("td_player", publicKey.toBase58());
         router.push("/dungeon");
         return;
       }
@@ -316,6 +317,7 @@ export default function LandingPage() {
       if (!res.ok) throw new Error(data.error || "Failed to verify payment");
 
       localStorage.setItem("td_session", JSON.stringify({ token: data.token, sessionId: data.sessionId, seed: data.seed, expiresAt: data.expiresAt }));
+      localStorage.setItem("td_player", publicKey.toBase58());
       await refreshBalance();
       router.push("/dungeon");
     } catch (err) {

@@ -2,11 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession, updateSession } from "@/lib/db-supabase";
 import { verifySessionToken } from "@/lib/jwt";
+import { createServiceRoleSupabaseClient } from "@/lib/supabase";
 
 // Request schema
 const completeSessionSchema = z.object({
   sessionId: z.string().uuid(),
   score: z.number().int().min(0).max(1000000),
+  floorsCleared: z.number().int().min(0).default(0),
+  enemiesDefeated: z.number().int().min(0).default(0),
+  goldCollected: z.number().int().min(0).default(0),
+  characterClass: z.enum(["warrior", "mage", "rogue"]).default("warrior"),
+  playTimeSeconds: z.number().int().min(0).default(0),
 });
 
 /**
@@ -83,6 +89,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const { floorsCleared, enemiesDefeated, goldCollected, characterClass, playTimeSeconds } = parseResult.data;
+
     // Update session to completed
     const updated = await updateSession(sessionId, {
       status: "completed",
@@ -94,6 +102,38 @@ export async function POST(request: NextRequest) {
         { error: "Failed to update session" },
         { status: 500 }
       );
+    }
+
+    // Submit to leaderboard
+    try {
+      const supabase = createServiceRoleSupabaseClient();
+      
+      // Get current season
+      const { data: seasonSetting } = await supabase
+        .from("td_settings")
+        .select("value")
+        .eq("key", "current_season")
+        .single();
+
+      const season = seasonSetting ? parseInt(seasonSetting.value, 10) : 1;
+
+      // Insert leaderboard entry
+      await supabase.from("td_leaderboard").insert({
+        player_address: payload.player,
+        score: score,
+        floors_cleared: floorsCleared,
+        enemies_defeated: enemiesDefeated,
+        gold_collected: goldCollected,
+        character_class: characterClass,
+        session_id: sessionId,
+        play_time_seconds: playTimeSeconds,
+        season,
+      });
+
+      console.log(`[Leaderboard] Submitted score ${score} for ${payload.player}`);
+    } catch (leaderboardError) {
+      // Don't fail the whole request if leaderboard submission fails
+      console.error("Leaderboard submission error:", leaderboardError);
     }
 
     return NextResponse.json({

@@ -73,10 +73,45 @@ function EndContent() {
   const result = searchParams.get("result") || "defeat";
   const score = parseInt(searchParams.get("score") || "0", 10);
   const gold = parseInt(searchParams.get("gold") || "0", 10);
+  const floors = parseInt(searchParams.get("floors") || "1", 10);
+  const kills = parseInt(searchParams.get("kills") || "0", 10);
+  const characterClass = searchParams.get("class") || "warrior";
   const isDemo = searchParams.get("demo") === "true";
 
   const isVictory = result === "victory";
   const [showStats, setShowStats] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+
+  // Submit to leaderboard for non-demo games
+  useEffect(() => {
+    if (isDemo || submitted) return;
+
+    const submitToLeaderboard = async () => {
+      try {
+        const res = await fetch("/api/leaderboard", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            playerPubkey: localStorage.getItem("td_player") || "anonymous",
+            score,
+            gold,
+            floorsCleared: floors,
+            kills,
+            characterClass,
+          }),
+        });
+
+        if (res.ok) {
+          console.log("[Leaderboard] Score submitted successfully");
+          setSubmitted(true);
+        }
+      } catch (err) {
+        console.error("[Leaderboard] Submit error:", err);
+      }
+    };
+
+    submitToLeaderboard();
+  }, [isDemo, submitted, score, gold, floors, kills, characterClass]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowStats(true), 1200);
@@ -167,6 +202,8 @@ function EndContent() {
               <div className="grid grid-cols-2 gap-3">
                 <StatPlaque label="Final Score" value={score.toLocaleString()} icon="🏆" delay={0.1} />
                 <StatPlaque label="Gold Collected" value={gold.toLocaleString()} icon="💰" delay={0.2} />
+                <StatPlaque label="Floors Cleared" value={floors} icon="🏰" delay={0.3} />
+                <StatPlaque label="Enemies Slain" value={kills} icon="⚔️" delay={0.4} />
               </div>
 
               {isVictory && !isDemo && (

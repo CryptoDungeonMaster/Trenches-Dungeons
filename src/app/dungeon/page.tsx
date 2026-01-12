@@ -577,7 +577,7 @@ function DungeonContent() {
       setCharacter((prev) => {
         if (!prev) return prev;
         const newHp = Math.min(prev.maxHealth, Math.max(0, prev.health + (effects.health as number)));
-        if (newHp <= 0) router.push(`/end?result=defeat&score=${playerState.score}${isDemo ? "&demo=true" : ""}`);
+        if (newHp <= 0) router.push(`/end?result=defeat&score=${playerState.score}&gold=${playerState.gold}&floors=${floor}&kills=${playerState.enemiesDefeated}&class=${prev.class}${isDemo ? "&demo=true" : ""}`);
         return { ...prev, health: newHp };
       });
     }
@@ -619,7 +619,7 @@ function DungeonContent() {
     setCharacter({ ...character, health: newPlayerHp });
 
     if (newPlayerHp <= 0) {
-      setTimeout(() => router.push(`/end?result=defeat&score=${playerState.score}${isDemo ? "&demo=true" : ""}`), 800);
+      setTimeout(() => router.push(`/end?result=defeat&score=${playerState.score}&gold=${playerState.gold}&floors=${floor}&kills=${playerState.enemiesDefeated}&class=${character.class}${isDemo ? "&demo=true" : ""}`), 800);
     } else if (newEnemyHp <= 0) {
       const reward = Math.floor(Math.random() * 40) + 30 + currentEnemy.template.tier * 15;
       setPlayerState((prev) => ({ ...prev, gold: prev.gold + reward, score: prev.score + 100 + currentEnemy.template.tier * 25, enemiesDefeated: prev.enemiesDefeated + 1 }));
@@ -638,7 +638,7 @@ function DungeonContent() {
 
     if (available.length === 0 || room >= 5) {
       if (floor >= 3) {
-        router.push(`/end?result=victory&score=${playerState.score}&gold=${playerState.gold}${isDemo ? "&demo=true" : ""}`);
+        router.push(`/end?result=victory&score=${playerState.score}&gold=${playerState.gold}&floors=${floor}&kills=${playerState.enemiesDefeated}&class=${character?.class || "warrior"}${isDemo ? "&demo=true" : ""}`);
       } else {
         setFloor((f) => f + 1);
         setRoom(0);
