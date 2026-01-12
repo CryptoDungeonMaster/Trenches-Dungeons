@@ -659,14 +659,28 @@ export default function LandingPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => { handleModeSelect("solo"); handleEnter(); }}
-                  disabled={isProcessing || !canEnter}
+                  onClick={() => {
+                    if (!connected) {
+                      handleConnectWallet();
+                    } else if (canEnter) {
+                      handleModeSelect("solo");
+                      handleEnter();
+                    } else {
+                      setError(`Need ${ENTRY_FEE} TND to enter. You have ${balance.toFixed(0)} TND`);
+                    }
+                  }}
+                  disabled={isProcessing}
                   className="group relative"
                 >
-                  <div className="w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 border-transparent hover:border-gold1/50 transition-all">
+                  <div className={cn(
+                    "w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 transition-all",
+                    canEnter ? "border-transparent hover:border-gold1/50" : "border-transparent hover:border-gold1/30 opacity-80"
+                  )}>
                     <span className="text-5xl">🗡️</span>
                     <span className="font-display text-lg text-text0">Solo</span>
-                    <span className="text-xs text-text2 font-ui">Face the dungeon alone</span>
+                    <span className="text-xs text-text2 font-ui">
+                      {!connected ? "Connect wallet" : canEnter ? "Face the dungeon alone" : `Need ${ENTRY_FEE} TND`}
+                    </span>
                   </div>
                 </motion.button>
 
@@ -674,14 +688,24 @@ export default function LandingPage() {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => handleModeSelect("coop")}
-                  disabled={!connected}
+                  onClick={() => {
+                    if (!connected) {
+                      handleConnectWallet();
+                    } else {
+                      handleModeSelect("coop");
+                    }
+                  }}
                   className="group relative"
                 >
-                  <div className="w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 border-transparent hover:border-arcane/50 transition-all">
+                  <div className={cn(
+                    "w-36 h-44 td-panel-elevated rounded-xl p-4 flex flex-col items-center justify-center gap-3 border-2 transition-all",
+                    connected ? "border-transparent hover:border-arcane/50" : "border-transparent hover:border-arcane/30 opacity-80"
+                  )}>
                     <span className="text-5xl">⚔️</span>
                     <span className="font-display text-lg text-text0">Co-op</span>
-                    <span className="text-xs text-text2 font-ui">Battle with friends</span>
+                    <span className="text-xs text-text2 font-ui">
+                      {!connected ? "Connect wallet" : "Battle with friends"}
+                    </span>
                   </div>
                 </motion.button>
               </div>
