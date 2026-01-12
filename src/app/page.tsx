@@ -861,32 +861,42 @@ export default function LandingPage() {
           <WalletButton />
         </div>
         
-        {/* Party Status - Right below wallet */}
-        {currentPartyId && (
-          <div className="td-panel-elevated rounded-lg p-3 min-w-[200px] border border-venom/40">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">🎮</span>
+        {/* Party Status - Always visible section */}
+        <div className="td-panel-elevated rounded-lg p-3 min-w-[200px] border border-line">
+          {currentPartyId ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-lg">🎮</span>
+                <div>
+                  <p className="text-venom font-display text-sm">In Party</p>
+                  <p className="text-[10px] text-text2 font-mono">{currentPartyId.slice(0, 8).toUpperCase()}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setGameMode("coop")}
+                  className="flex-1 td-btn td-btn-ghost text-xs py-1.5"
+                >
+                  👁️ View
+                </button>
+                <button 
+                  onClick={handleLeaveParty}
+                  className="flex-1 text-xs py-1.5 rounded bg-blood/20 border border-blood/40 text-blood hover:bg-blood/30 transition-colors"
+                >
+                  🚪 Leave
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-lg">👤</span>
               <div>
-                <p className="text-venom font-display text-sm">In Party</p>
-                <p className="text-[10px] text-text2 font-mono">{currentPartyId.slice(0, 8).toUpperCase()}</p>
+                <p className="text-text2 font-ui text-sm">No Party</p>
+                <p className="text-[10px] text-text2">Select Co-op to join</p>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setGameMode("coop")}
-                className="flex-1 td-btn td-btn-ghost text-xs py-1.5"
-              >
-                👁️ View
-              </button>
-              <button 
-                onClick={handleLeaveParty}
-                className="flex-1 text-xs py-1.5 rounded bg-blood/20 border border-blood/40 text-blood hover:bg-blood/30 transition-colors"
-              >
-                🚪 Leave
-              </button>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {/* Main content */}
