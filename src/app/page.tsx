@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
-import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
 import { hasFreeEntry } from "@/lib/admins";
@@ -317,29 +317,27 @@ export default function LandingPage() {
       const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
       console.log("[Entry] Treasury ATA:", treasuryATA.toBase58());
 
-      // Check if treasury ATA exists, if not create it
+      // Build transaction with compute budget and idempotent ATA creation
       const transaction = new Transaction();
-      const treasuryATAInfo = await connection.getAccountInfo(treasuryATA);
       
-      // Add compute budget for complex transactions (ATA creation + transfer)
+      // Add compute budget for priority
       transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 300000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50000 })
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 200000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10000 })
       );
       
-      if (!treasuryATAInfo) {
-        console.log("[Entry] Creating treasury ATA...");
-        transaction.add(
-          createAssociatedTokenAccountInstruction(
-            publicKey, // payer
-            treasuryATA, // ata address
-            TREASURY_WALLET, // owner
-            TOKEN_MINT, // mint
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-          )
-        );
-      }
+      // Idempotent ATA creation - won't fail if already exists
+      console.log("[Entry] Adding idempotent ATA instruction...");
+      transaction.add(
+        createAssociatedTokenAccountIdempotentInstruction(
+          publicKey, // payer
+          treasuryATA, // ata address
+          TREASURY_WALLET, // owner
+          TOKEN_MINT, // mint
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        )
+      );
 
       const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, tokenDecimals));
       transaction.add(
