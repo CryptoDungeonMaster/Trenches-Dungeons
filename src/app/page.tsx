@@ -693,8 +693,28 @@ export default function LandingPage() {
     setError(null);
     
     try {
-      // All members have already paid when joining/creating party
-      // Just call API to start the dungeon for the whole party
+      // First, get party members to initialize game state
+      const partyRes = await fetch(`/api/party?id=${partyId}`);
+      const partyData = await partyRes.json();
+      if (!partyRes.ok) throw new Error(partyData.error || "Failed to get party info");
+      
+      // Initialize multiplayer game state with party members
+      const players = partyData.party.members.map((m: { address: string }, i: number) => ({
+        address: m.address,
+        name: `Player ${i + 1}`,
+        characterClass: "warrior", // Default class - could add selection
+      }));
+      
+      const gameRes = await fetch("/api/party/game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partyId, players }),
+      });
+      
+      const gameData = await gameRes.json();
+      if (!gameRes.ok) throw new Error(gameData.error || "Failed to initialize game");
+      
+      // Update party status to in_dungeon
       const res = await fetch("/api/party", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },

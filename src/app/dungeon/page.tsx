@@ -4,6 +4,7 @@ import { useState, useCallback, Suspense, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { cn, generateId } from "@/lib/utils";
 import { CharacterClass } from "@/types/game";
 import { CLASSES } from "@/data/classes";
@@ -16,6 +17,25 @@ import {
   BOSS_ENCOUNTERS,
   checkRequirement,
 } from "@/data/encounters";
+
+// Dynamic import for multiplayer to avoid SSR issues
+const MultiplayerDungeon = dynamic(
+  () => import("@/components/game/MultiplayerDungeon"),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="min-h-screen flex items-center justify-center bg-bg0">
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+          className="text-5xl"
+        >
+          ⚔️
+        </motion.div>
+      </div>
+    )
+  }
+);
 
 // ============================================
 // TYPES
@@ -541,13 +561,10 @@ function CombatScreen({ character, enemy, onAction }: { character: CharacterStat
 }
 
 // ============================================
-// MAIN GAME
+// SOLO GAME CONTENT
 // ============================================
-function DungeonContent() {
+function SoloGameContent({ isDemo }: { isDemo: boolean }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const isDemo = searchParams.get("demo") === "true";
-
   const [phase, setPhase] = useState<GamePhase>("select");
   const [character, setCharacter] = useState<CharacterState | null>(null);
   const [playerState, setPlayerState] = useState<PlayerState>({ gold: 50, score: 0, items: [], unlocks: [], enemiesDefeated: 0 });
@@ -677,6 +694,23 @@ function DungeonContent() {
       </div>
     </div>
   );
+}
+
+// ============================================
+// MAIN DUNGEON CONTENT (Router)
+// ============================================
+function DungeonContent() {
+  const searchParams = useSearchParams();
+  const isDemo = searchParams.get("demo") === "true";
+  const partyId = searchParams.get("party");
+
+  // If in a party, use multiplayer mode
+  if (partyId) {
+    return <MultiplayerDungeon partyId={partyId} />;
+  }
+
+  // Solo mode
+  return <SoloGameContent isDemo={isDemo} />;
 }
 
 export default function DungeonPage() {
