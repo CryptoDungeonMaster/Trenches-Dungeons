@@ -94,6 +94,7 @@ const actionSchema = z.object({
   leader: z.string().min(32).max(44).optional(),
   player: z.string().min(32).max(44).optional(),
   code: z.string().min(4).max(6).optional(),
+  force: z.boolean().optional(), // Force cleanup of any existing party memberships
 });
 
 export async function POST(request: NextRequest) {
@@ -108,8 +109,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { action, leader, player, code: partyCode } = parseResult.data;
+    const { action, leader, player, code: partyCode, force } = parseResult.data;
     const supabase = createServiceRoleSupabaseClient();
+
+    // If force flag is set, clean up ALL party memberships for this player first
+    if (force) {
+      const playerAddress = leader || player;
+      if (playerAddress) {
+        await supabase
+          .from(TABLES.partyMembers)
+          .delete()
+          .eq("player_address", playerAddress);
+      }
+    }
 
     // JOIN action
     if (action === "join") {
@@ -225,15 +237,20 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (existingMember) {
-      // Check if that party is still active
+      // Check if that party is still active and recent
       const { data: existingParty } = await supabase
         .from(TABLES.parties)
-        .select("id, status")
+        .select("id, status, created_at")
         .eq("id", existingMember.party_id)
         .single();
       
-      // If party doesn't exist or is completed/disbanded, clean up the stale member record
-      if (!existingParty || existingParty.status === "completed" || existingParty.status === "disbanded") {
+      // Clean up if: party doesn't exist, is completed/disbanded, or is stale (waiting for >2 hours)
+      const isStale = existingParty?.created_at && 
+        (Date.now() - new Date(existingParty.created_at).getTime() > 2 * 60 * 60 * 1000);
+      
+      if (!existingParty || existingParty.status === "completed" || existingParty.status === "disbanded" || 
+          (existingParty.status === "waiting" && isStale)) {
+        // Clean up ALL memberships for this player
         await supabase
           .from(TABLES.partyMembers)
           .delete()

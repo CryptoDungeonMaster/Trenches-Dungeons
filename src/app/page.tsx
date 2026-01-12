@@ -275,13 +275,13 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
       });
       const data = await res.json();
       if (!res.ok) {
-        // If already in a party, clear old data and retry once
+        // If already in a party, clear old data and force retry
         if (data.error?.includes("Already in a party")) {
           localStorage.removeItem("td_party");
           const retryRes = await fetch("/api/party", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "create", leader: publicKey.toBase58() }),
+            body: JSON.stringify({ action: "create", leader: publicKey.toBase58(), force: true }),
           });
           const retryData = await retryRes.json();
           if (!retryRes.ok) throw new Error(retryData.error);
@@ -314,13 +314,13 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
       });
       const data = await res.json();
       if (!res.ok) {
-        // If already in a party, clear old data and retry once
+        // If already in a party, clear old data and force retry
         if (data.error?.includes("Already in a party")) {
           localStorage.removeItem("td_party");
           const retryRes = await fetch("/api/party", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "join", code: partyCode.toUpperCase(), player: publicKey.toBase58() }),
+            body: JSON.stringify({ action: "join", code: partyCode.toUpperCase(), player: publicKey.toBase58(), force: true }),
           });
           const retryData = await retryRes.json();
           if (!retryRes.ok) throw new Error(retryData.error);
