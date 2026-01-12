@@ -257,13 +257,15 @@ type GameMode = "solo" | "coop" | null;
 function PartyLobby({ 
   onBack, 
   onStart, 
+  onJoinDungeon,
   canEnter, 
   balance, 
   isFreeEntry,
   onPayFee 
 }: { 
   onBack: () => void; 
-  onStart: (partyId: string) => void;
+  onStart: (partyId: string) => void; // For leader to start
+  onJoinDungeon: (partyId: string) => void; // For members when dungeon starts
   canEnter: boolean;
   balance: number;
   isFreeEntry: boolean;
@@ -277,6 +279,7 @@ function PartyLobby({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasPaid, setHasPaid] = useState(isFreeEntry);
+  const [isLeader, setIsLeader] = useState(false);
 
   const createParty = async () => {
     if (!publicKey) return;
@@ -319,6 +322,7 @@ function PartyLobby({
           setPartyId(retryData.partyId);
           setPartyCode(retryData.code);
           setMembers([{ address: publicKey.toBase58(), ready: true }]);
+          setIsLeader(true);
           return;
         }
         throw new Error(data.error);
@@ -326,6 +330,7 @@ function PartyLobby({
       setPartyId(data.partyId);
       setPartyCode(data.code);
       setMembers([{ address: publicKey.toBase58(), ready: true }]);
+      setIsLeader(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create party");
     } finally {
@@ -400,8 +405,10 @@ function PartyLobby({
             (m: { address?: string }) => m && m.address
           );
           setMembers(validMembers);
+          
+          // When dungeon starts, redirect all members
           if (data.party.status === "in_dungeon") {
-            onStart(partyId);
+            onJoinDungeon(partyId);
           }
         }
       } catch {
@@ -409,7 +416,7 @@ function PartyLobby({
       }
     }, 2000);
     return () => clearInterval(interval);
-  }, [partyId, onStart]);
+  }, [partyId, onJoinDungeon]);
 
   if (!mode) {
     return (
@@ -615,6 +622,12 @@ export default function LandingPage() {
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Simple redirect for party members when dungeon starts (no API call needed)
+  const handleJoinDungeon = (partyId: string) => {
+    localStorage.setItem("td_party", partyId);
+    router.push(`/dungeon?party=${partyId}`);
   };
 
   // Reusable payment function for both solo and party modes
@@ -885,6 +898,7 @@ export default function LandingPage() {
               <PartyLobby 
                 onBack={() => setGameMode(null)} 
                 onStart={handlePartyStart}
+                onJoinDungeon={handleJoinDungeon}
                 canEnter={canEnter}
                 balance={balance}
                 isFreeEntry={isFreeEntry}
