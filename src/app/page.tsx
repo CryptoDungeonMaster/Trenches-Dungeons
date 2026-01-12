@@ -262,7 +262,8 @@ function PartyLobby({
   canEnter, 
   balance, 
   isFreeEntry,
-  onPayFee 
+  onPayFee,
+  onPartyChange
 }: { 
   onBack: () => void; 
   onStart: (partyId: string) => void; // For leader to start
@@ -271,6 +272,7 @@ function PartyLobby({
   balance: number;
   isFreeEntry: boolean;
   onPayFee: () => Promise<boolean>;
+  onPartyChange: (partyId: string | null) => void; // Update parent's party state
 }) {
   const { publicKey } = useWallet();
   const [mode, setMode] = useState<"create" | "join" | null>(null);
@@ -325,6 +327,7 @@ function PartyLobby({
           setMembers([{ address: publicKey.toBase58(), ready: true }]);
           setIsLeader(true);
           localStorage.setItem("td_party", retryData.partyId);
+          onPartyChange(retryData.partyId);
           return;
         }
         throw new Error(data.error);
@@ -333,8 +336,9 @@ function PartyLobby({
       setPartyCode(data.code);
       setMembers([{ address: publicKey.toBase58(), ready: true }]);
       setIsLeader(true);
-      // Save to localStorage so party panel shows
+      // Save to localStorage and update parent state
       localStorage.setItem("td_party", data.partyId);
+      onPartyChange(data.partyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create party");
     } finally {
@@ -383,6 +387,7 @@ function PartyLobby({
           setPartyId(retryData.partyId);
           setMembers(retryData.members || []);
           localStorage.setItem("td_party", retryData.partyId);
+          onPartyChange(retryData.partyId);
           return;
         }
         throw new Error(data.error);
@@ -390,6 +395,7 @@ function PartyLobby({
       setPartyId(data.partyId);
       setMembers(data.members || []);
       localStorage.setItem("td_party", data.partyId);
+      onPartyChange(data.partyId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to join party");
     } finally {
@@ -621,19 +627,37 @@ export default function LandingPage() {
     setError(null);
     
     try {
-      // Update party status to in_dungeon
+      // Start the party dungeon (uses action: "start" and playerAddress)
       const res = await fetch("/api/party", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           partyId, 
-          action: "start_dungeon", 
-          player: publicKey.toBase58() 
+          action: "start", 
+          playerAddress: publicKey.toBase58() 
         }),
       });
       
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to start dungeon");
+      
+      // Initialize the multiplayer game state
+      const partyRes = await fetch(`/api/party?id=${partyId}`);
+      const partyData = await partyRes.json();
+      
+      if (partyData.party?.members) {
+        const players = partyData.party.members.map((m: { address: string }, i: number) => ({
+          address: m.address,
+          name: `Player ${i + 1}`,
+          characterClass: "warrior",
+        }));
+        
+        await fetch("/api/party/game", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ partyId, players }),
+        });
+      }
       
       localStorage.setItem("td_party", partyId);
       setCurrentPartyId(partyId);
@@ -942,6 +966,7 @@ export default function LandingPage() {
                 balance={balance}
                 isFreeEntry={isFreeEntry}
                 onPayFee={processPayment}
+                onPartyChange={setCurrentPartyId}
               />
             </motion.div>
           ) : showModeSelect ? (
