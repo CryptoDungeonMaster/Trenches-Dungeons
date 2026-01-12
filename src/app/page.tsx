@@ -846,7 +846,7 @@ export default function LandingPage() {
       <EmberParticles />
 
       {/* Top-right controls */}
-      <div className="fixed top-4 right-4 z-40 flex flex-col items-end gap-2">
+      <div className="fixed top-4 right-4 z-40 flex flex-col items-end gap-3">
         <div className="flex items-center gap-3">
           {connected && (
             <div className="flex items-center gap-2 px-4 py-2 td-panel rounded-lg">
@@ -858,12 +858,35 @@ export default function LandingPage() {
               )}
             </div>
           )}
-          <button onClick={() => setShowLeaderboard(true)} className="td-btn td-btn-ghost text-sm">
-            🏆
-          </button>
           <WalletButton />
         </div>
         
+        {/* Party Status - Right below wallet */}
+        {currentPartyId && (
+          <div className="td-panel-elevated rounded-lg p-3 min-w-[200px] border border-venom/40">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🎮</span>
+              <div>
+                <p className="text-venom font-display text-sm">In Party</p>
+                <p className="text-[10px] text-text2 font-mono">{currentPartyId.slice(0, 8).toUpperCase()}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setGameMode("coop")}
+                className="flex-1 td-btn td-btn-ghost text-xs py-1.5"
+              >
+                👁️ View
+              </button>
+              <button 
+                onClick={handleLeaveParty}
+                className="flex-1 text-xs py-1.5 rounded bg-blood/20 border border-blood/40 text-blood hover:bg-blood/30 transition-colors"
+              >
+                🚪 Leave
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Main content */}
@@ -1074,47 +1097,6 @@ export default function LandingPage() {
 
 
       <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
-
-      {/* Party Status - Fixed bottom left, always visible when in party */}
-      <AnimatePresence>
-        {currentPartyId && (
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            className="fixed bottom-4 left-4 z-50"
-          >
-            <div className="td-panel-elevated rounded-lg p-4 min-w-[220px] shadow-lg border border-venom/30">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-lg bg-venom/20 flex items-center justify-center">
-                  <span className="text-xl">🎮</span>
-                </div>
-                <div>
-                  <p className="text-venom font-display text-sm">Active Party</p>
-                  <p className="text-[10px] text-text2 font-mono">
-                    {currentPartyId.slice(0, 8).toUpperCase()}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setGameMode("coop")}
-                  className="flex-1 td-btn td-btn-primary text-xs py-2"
-                >
-                  👁️ View
-                </button>
-                <button 
-                  onClick={handleLeaveParty}
-                  className="flex-1 td-btn text-xs py-2 bg-blood/20 border border-blood/40 text-blood hover:bg-blood/30"
-                >
-                  🚪 Leave
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </main>
   );
 }
