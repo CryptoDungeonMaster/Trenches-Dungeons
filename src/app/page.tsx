@@ -16,7 +16,7 @@ import { hasFreeEntry } from "@/lib/admins";
 const WalletButton = dynamic(() => import("@/components/WalletButton"), { ssr: false });
 
 const TOKEN_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump"
+  process.env.NEXT_PUBLIC_TOKEN_MINT || "GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump"
 );
 const TREASURY_WALLET = new PublicKey(
   process.env.NEXT_PUBLIC_TREASURY_WALLET || "CjSqsat78oKYhoSwSkdkQFoXyyBqjhBBqJTwFnvB8K9S"
@@ -1127,6 +1127,30 @@ export default function LandingPage() {
               </div>
             </motion.div>
           ))}
+        </motion.div>
+
+        {/* Contract Address */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.3 }}
+          className="mt-8 td-panel px-4 py-3"
+        >
+          <p className="text-text2 text-xs font-ui mb-1">$TND Contract Address</p>
+          <div className="flex items-center gap-2">
+            <code className="text-gold1 text-xs font-mono bg-bg1 px-2 py-1 rounded flex-1 truncate">
+              GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump
+            </code>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText("GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump");
+              }}
+              className="text-text2 hover:text-gold1 transition-colors p-1"
+              title="Copy CA"
+            >
+              📋
+            </button>
+          </div>
         </motion.div>
 
         {/* Footer - now part of the flow, not absolute */}

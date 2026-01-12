@@ -12,7 +12,7 @@ import {
 
 // The SPL token mint address for the game
 export const TOKEN_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump"
+  process.env.NEXT_PUBLIC_TOKEN_MINT || "GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump"
 );
 
 // RPC endpoint (Helius for reliability)

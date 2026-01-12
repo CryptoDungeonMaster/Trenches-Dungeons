@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { PublicKey } from "@solana/web3.js";
 
 const TOKEN_MINT = new PublicKey(
-  process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump"
+  process.env.NEXT_PUBLIC_TOKEN_MINT || "GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump"
 );
 
 interface TokenBalance {

@@ -12,7 +12,7 @@
  * This is the actual Pump.fun SPL token
  */
 export const TOKEN_MINT_ADDRESS =
-  process.env.NEXT_PUBLIC_TOKEN_MINT || "CkTFDNGUtw58dBDEnMD9RW3tjTVKaoVXctcXdq8Gpump";
+  process.env.NEXT_PUBLIC_TOKEN_MINT || "GA4fvhBSG5RCDMfczewNePy6xJWTN3p4JRExia2bpump";
 
 /**
  * Treasury wallet that receives entry fees
