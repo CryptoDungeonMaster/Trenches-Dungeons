@@ -7,7 +7,7 @@ import Image from "next/image";
 import dynamic from "next/dynamic";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
+import { PublicKey, Transaction } from "@solana/web3.js";
 import { getAssociatedTokenAddress, createTransferInstruction, createAssociatedTokenAccountIdempotentInstruction, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { cn } from "@/lib/utils";
 import { useTokenBalance } from "@/hooks/useTokenBalance";
@@ -317,31 +317,40 @@ export default function LandingPage() {
       const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
       console.log("[Entry] Treasury ATA:", treasuryATA.toBase58());
 
-      // Build transaction with compute budget and idempotent ATA creation
+      // Build simple transfer transaction
       const transaction = new Transaction();
       
-      // Add compute budget for priority
-      transaction.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 200000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 10000 })
-      );
+      // Check if treasury ATA exists first
+      const treasuryATAInfo = await connection.getAccountInfo(treasuryATA);
       
-      // Idempotent ATA creation - won't fail if already exists
-      console.log("[Entry] Adding idempotent ATA instruction...");
-      transaction.add(
-        createAssociatedTokenAccountIdempotentInstruction(
-          publicKey, // payer
-          treasuryATA, // ata address
-          TREASURY_WALLET, // owner
-          TOKEN_MINT, // mint
-          TOKEN_PROGRAM_ID,
-          ASSOCIATED_TOKEN_PROGRAM_ID
-        )
-      );
+      if (!treasuryATAInfo) {
+        console.log("[Entry] Treasury ATA doesn't exist, creating...");
+        transaction.add(
+          createAssociatedTokenAccountIdempotentInstruction(
+            publicKey, // payer
+            treasuryATA, // ata address
+            TREASURY_WALLET, // owner
+            TOKEN_MINT, // mint
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
 
       const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, tokenDecimals));
+      console.log("[Entry] Transfer amount (raw):", transferAmount.toString());
+      console.log("[Entry] From:", playerTokenAccount.toBase58());
+      console.log("[Entry] To:", treasuryATA.toBase58());
+      
       transaction.add(
-        createTransferInstruction(playerTokenAccount, treasuryATA, publicKey, transferAmount, [], TOKEN_PROGRAM_ID)
+        createTransferInstruction(
+          playerTokenAccount,
+          treasuryATA, 
+          publicKey,
+          transferAmount,
+          [],
+          TOKEN_PROGRAM_ID
+        )
       );
 
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
