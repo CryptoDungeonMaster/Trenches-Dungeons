@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
         .from(TABLES.parties)
         .select("*")
         .eq("code", partyCode.toUpperCase())
-        .eq("status", "waiting")
+        .eq("status", "lobby")
         .single();
 
       if (findError || !party) {
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         
         if (anyParty) {
           return NextResponse.json({ 
-            error: `Party found but status is '${anyParty.status}' - expected 'waiting'` 
+            error: `Party found but status is '${anyParty.status}' - expected 'lobby'` 
           }, { status: 404 });
         }
         return NextResponse.json({ error: "Party not found. Check the code and try again." }, { status: 404 });
@@ -274,12 +274,12 @@ export async function POST(request: NextRequest) {
         .eq("id", existingMember.party_id)
         .single();
       
-      // Clean up if: party doesn't exist, is completed/disbanded, or is stale (waiting for >2 hours)
+      // Clean up if: party doesn't exist, is completed/disbanded, or is stale (lobby for >2 hours)
       const isStale = existingParty?.created_at && 
         (Date.now() - new Date(existingParty.created_at).getTime() > 2 * 60 * 60 * 1000);
       
       if (!existingParty || existingParty.status === "completed" || existingParty.status === "disbanded" || 
-          (existingParty.status === "waiting" && isStale)) {
+          (existingParty.status === "lobby" && isStale)) {
         // Clean up ALL memberships for this player
         await supabase
           .from(TABLES.partyMembers)
@@ -315,7 +315,7 @@ export async function POST(request: NextRequest) {
       .insert({
         code,
         leader_address: data.leaderAddress,
-        status: "waiting",
+        status: "lobby",
         max_size: 4,
         loot_distribution: "ffa",
         difficulty: "normal",
