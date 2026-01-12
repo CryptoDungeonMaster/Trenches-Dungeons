@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const partyId = searchParams.get("partyId");
 
+    console.log("[Game GET] Looking for game with partyId:", partyId);
+
     if (!partyId) {
       return NextResponse.json({ error: "Party ID required" }, { status: 400 });
     }
@@ -21,8 +23,17 @@ export async function GET(request: NextRequest) {
       .eq("party_id", partyId)
       .single();
 
+    console.log("[Game GET] Result:", { gameState: !!gameState, error: error?.message });
+
     if (error || !gameState) {
-      return NextResponse.json({ error: "Game not found" }, { status: 404 });
+      // Also try to find any game state to help debug
+      const { data: allGames } = await supabase
+        .from(TABLES.partyGameState)
+        .select("id, party_id")
+        .limit(5);
+      console.log("[Game GET] All games in DB:", allGames);
+      
+      return NextResponse.json({ error: "Game not found", debug: { partyId, allGames } }, { status: 404 });
     }
 
     return NextResponse.json({ gameState });
@@ -38,6 +49,9 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { partyId, players } = body;
 
+    console.log("[Game POST] Creating game for party:", partyId);
+    console.log("[Game POST] Players:", players);
+
     if (!partyId || !players || players.length === 0) {
       return NextResponse.json(
         { error: "Party ID and players required" },
@@ -48,15 +62,17 @@ export async function POST(request: NextRequest) {
     const supabase = createServiceRoleSupabaseClient();
 
     // Check if game already exists - if so, return it instead of error
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from(TABLES.partyGameState)
       .select("*")
       .eq("party_id", partyId)
       .single();
 
+    console.log("[Game POST] Existing check:", { found: !!existing, error: existingError?.message });
+
     if (existing) {
       // Game already exists, just return it
-      console.log("[Game] Game already exists for party, returning existing");
+      console.log("[Game POST] Game already exists for party, returning existing");
       return NextResponse.json({ gameState: existing, message: "Game already exists" });
     }
 
@@ -127,9 +143,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      console.error("Create game error:", error);
+      console.error("[Game POST] Create game error:", error);
       return NextResponse.json({ error: `Failed to create game: ${error.message}` }, { status: 500 });
     }
+
+    console.log("[Game POST] Game created successfully:", gameState?.id);
 
     // Update party status to in_dungeon
     await supabase

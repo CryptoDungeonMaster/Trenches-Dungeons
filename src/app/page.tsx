@@ -644,19 +644,31 @@ export default function LandingPage() {
       // Initialize the multiplayer game state
       const partyRes = await fetch(`/api/party?id=${partyId}`);
       const partyData = await partyRes.json();
+      console.log("[PartyStart] Party data:", partyData);
       
-      if (partyData.party?.members) {
+      if (partyData.party?.members && partyData.party.members.length > 0) {
         const players = partyData.party.members.map((m: { address: string }, i: number) => ({
           address: m.address,
           name: `Player ${i + 1}`,
           characterClass: "warrior",
         }));
         
-        await fetch("/api/party/game", {
+        console.log("[PartyStart] Creating game with players:", players);
+        
+        const gameRes = await fetch("/api/party/game", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ partyId, players }),
         });
+        
+        const gameData = await gameRes.json();
+        console.log("[PartyStart] Game creation response:", gameData);
+        
+        if (!gameRes.ok && !gameData.gameState) {
+          throw new Error(gameData.error || "Failed to create game state");
+        }
+      } else {
+        throw new Error("No party members found");
       }
       
       localStorage.setItem("td_party", partyId);
