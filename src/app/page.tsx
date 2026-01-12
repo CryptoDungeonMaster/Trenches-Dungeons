@@ -254,7 +254,21 @@ function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
 type GameMode = "solo" | "coop" | null;
 
 // Party Lobby Component
-function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId: string) => void }) {
+function PartyLobby({ 
+  onBack, 
+  onStart, 
+  canEnter, 
+  balance, 
+  isFreeEntry,
+  onPayFee 
+}: { 
+  onBack: () => void; 
+  onStart: (partyId: string) => void;
+  canEnter: boolean;
+  balance: number;
+  isFreeEntry: boolean;
+  onPayFee: () => Promise<boolean>;
+}) {
   const { publicKey } = useWallet();
   const [mode, setMode] = useState<"create" | "join" | null>(null);
   const [partyCode, setPartyCode] = useState("");
@@ -262,12 +276,29 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
   const [members, setMembers] = useState<Array<{ address: string; ready: boolean }>>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasPaid, setHasPaid] = useState(isFreeEntry);
 
   const createParty = async () => {
     if (!publicKey) return;
     setIsLoading(true);
     setError(null);
     try {
+      // Require payment before creating party
+      if (!hasPaid && !isFreeEntry) {
+        if (!canEnter) {
+          setError(`Need ${ENTRY_FEE} TND to create a party`);
+          setIsLoading(false);
+          return;
+        }
+        const success = await onPayFee();
+        if (!success) {
+          setError("Payment failed. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+        setHasPaid(true);
+      }
+
       const res = await fetch("/api/party", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -307,6 +338,22 @@ function PartyLobby({ onBack, onStart }: { onBack: () => void; onStart: (partyId
     setIsLoading(true);
     setError(null);
     try {
+      // Require payment before joining party
+      if (!hasPaid && !isFreeEntry) {
+        if (!canEnter) {
+          setError(`Need ${ENTRY_FEE} TND to join a party`);
+          setIsLoading(false);
+          return;
+        }
+        const success = await onPayFee();
+        if (!success) {
+          setError("Payment failed. Please try again.");
+          setIsLoading(false);
+          return;
+        }
+        setHasPaid(true);
+      }
+
       const res = await fetch("/api/party", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -539,9 +586,87 @@ export default function LandingPage() {
   };
 
   const handlePartyStart = async (partyId: string) => {
-    localStorage.setItem("td_party", partyId);
-    router.push(`/dungeon?party=${partyId}`);
+    if (!publicKey) return;
+    
+    setIsProcessing(true);
+    setError(null);
+    
+    try {
+      // All members have already paid when joining/creating party
+      // Just call API to start the dungeon for the whole party
+      const res = await fetch("/api/party", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          partyId, 
+          action: "start_dungeon", 
+          player: publicKey.toBase58() 
+        }),
+      });
+      
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to start dungeon");
+      
+      localStorage.setItem("td_party", partyId);
+      router.push(`/dungeon?party=${partyId}`);
+    } catch (err) {
+      console.error("Party start error:", err);
+      setError(err instanceof Error ? err.message : "Failed to start party dungeon");
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  // Reusable payment function for both solo and party modes
+  const processPayment = useCallback(async (): Promise<boolean> => {
+    if (!publicKey || !connected) return false;
+    
+    try {
+      const playerAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+        mint: TOKEN_MINT,
+      });
+
+      if (playerAccounts.value.length === 0) {
+        throw new Error("No TND tokens found in your wallet.");
+      }
+
+      const playerTokenAccount = playerAccounts.value[0].pubkey;
+      const tokenInfo = playerAccounts.value[0].account.data.parsed.info;
+      const tokenDecimals = tokenInfo.tokenAmount.decimals || 6;
+      const tokenProgramId = playerAccounts.value[0].account.owner;
+
+      const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET, false, tokenProgramId);
+
+      const transaction = new Transaction();
+      
+      const treasuryATAInfo = await connection.getAccountInfo(treasuryATA);
+      if (!treasuryATAInfo) {
+        transaction.add(
+          createAssociatedTokenAccountIdempotentInstruction(
+            publicKey, treasuryATA, TREASURY_WALLET, TOKEN_MINT, tokenProgramId, ASSOCIATED_TOKEN_PROGRAM_ID
+          )
+        );
+      }
+
+      const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, tokenDecimals));
+      transaction.add(
+        createTransferInstruction(playerTokenAccount, treasuryATA, publicKey, transferAmount, [], tokenProgramId)
+      );
+
+      const { blockhash } = await connection.getLatestBlockhash("confirmed");
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      const signature = await sendTransaction(transaction, connection, { skipPreflight: true, maxRetries: 3 });
+      await connection.confirmTransaction(signature, "confirmed");
+      await refreshBalance();
+      
+      return true;
+    } catch (err) {
+      console.error("Payment error:", err);
+      return false;
+    }
+  }, [publicKey, connected, connection, sendTransaction, refreshBalance]);
 
   const handleEnter = useCallback(async () => {
     if (!publicKey || !connected) return;
@@ -757,7 +882,14 @@ export default function LandingPage() {
         <AnimatePresence mode="wait">
           {gameMode === "coop" ? (
             <motion.div key="coop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <PartyLobby onBack={() => setGameMode(null)} onStart={handlePartyStart} />
+              <PartyLobby 
+                onBack={() => setGameMode(null)} 
+                onStart={handlePartyStart}
+                canEnter={canEnter}
+                balance={balance}
+                isFreeEntry={isFreeEntry}
+                onPayFee={processPayment}
+              />
             </motion.div>
           ) : showModeSelect ? (
             <motion.div key="modes" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="text-center">
