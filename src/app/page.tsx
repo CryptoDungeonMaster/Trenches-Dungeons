@@ -242,105 +242,12 @@ function LeaderboardModal({ isOpen, onClose }: { isOpen: boolean; onClose: () =>
           ))}
         </div>
 
-        <div className="p-4 border-t border-line text-center text-text2 text-sm font-ui">Season 1 • Updated hourly</div>
+        <div className="p-4 border-t border-line text-center text-text2 text-sm font-ui">Updated hourly</div>
       </motion.div>
     </motion.div>
   );
 }
 
-// ============================================
-// PRIZE POOL INDICATOR
-// ============================================
-function PrizePoolIndicator() {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [poolData, setPoolData] = useState({ entries: 0, poolSize: 0 });
-  
-  // Fetch pool data (count of entries this season)
-  useEffect(() => {
-    const fetchPool = async () => {
-      try {
-        const res = await fetch("/api/leaderboard?limit=1000");
-        const data = await res.json();
-        const entries = data.entries?.length || 0;
-        setPoolData({
-          entries,
-          poolSize: entries * ENTRY_FEE, // Each entry = ENTRY_FEE TND
-        });
-      } catch {
-        // Ignore errors
-      }
-    };
-    fetchPool();
-    const interval = setInterval(fetchPool, 30000); // Refresh every 30s
-    return () => clearInterval(interval);
-  }, []);
-
-  const prizes = [
-    { place: "1st", percent: 30, icon: "🥇" },
-    { place: "2nd", percent: 20, icon: "🥈" },
-    { place: "3rd", percent: 12, icon: "🥉" },
-    { place: "4-5th", percent: 6, icon: "🏅" },
-    { place: "6-10th", percent: 3, icon: "🎖️" },
-  ];
-
-  return (
-    <motion.div 
-      initial={{ opacity: 0, x: 20 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: 2 }}
-      className="fixed bottom-4 right-4 z-30"
-    >
-      <motion.div
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="cursor-pointer"
-        whileHover={{ scale: 1.02 }}
-      >
-        <div className="td-panel rounded-lg px-3 py-2 text-right">
-          <div className="flex items-center gap-2 justify-end">
-            <span className="text-gold1 text-lg">🏆</span>
-            <div>
-              <p className="text-text2 text-[10px] font-ui uppercase tracking-wider">Season 1 Pool</p>
-              <p className="text-gold1 font-display text-sm">{poolData.poolSize.toLocaleString()} TND</p>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-
-      <AnimatePresence>
-        {isExpanded && (
-          <motion.div
-            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-full right-0 mb-2 w-56"
-          >
-            <div className="td-panel-elevated rounded-lg p-3">
-              <p className="text-text2 text-xs font-ui mb-2 border-b border-line pb-2">
-                {poolData.entries} entries this season
-              </p>
-              <div className="space-y-1">
-                {prizes.map((p) => (
-                  <div key={p.place} className="flex items-center justify-between text-xs">
-                    <span className="text-text2 font-ui">
-                      <span className="mr-1">{p.icon}</span>
-                      {p.place}
-                    </span>
-                    <span className="text-text0 font-ui">
-                      {p.percent}% <span className="text-text2">({Math.floor(poolData.poolSize * p.percent / 100)} TND)</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-text2/50 text-[10px] font-ui mt-2 pt-2 border-t border-line">
-                Prizes distributed at season end
-              </p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
-}
 
 // ============================================
 // MAIN PAGE
@@ -941,20 +848,34 @@ export default function LandingPage() {
           <WalletButton />
         </div>
         
-        {/* Party status indicator */}
+        {/* Party status indicator - more prominent */}
         {connected && currentPartyId && (
           <motion.div 
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 px-3 py-2 td-panel rounded-lg"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="td-panel-elevated rounded-lg p-3 min-w-[200px]"
           >
-            <span className="text-venom text-xs font-ui">🎮 In Party</span>
-            <button 
-              onClick={handleLeaveParty}
-              className="text-blood text-xs font-ui hover:text-blood/80 underline"
-            >
-              Leave
-            </button>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🎮</span>
+              <span className="text-gold1 font-display text-sm">Active Party</span>
+            </div>
+            <div className="text-[10px] text-text2 font-ui mb-2">
+              Code: <span className="text-text0 font-mono">{currentPartyId.slice(0, 8).toUpperCase()}</span>
+            </div>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setGameMode("coop")}
+                className="flex-1 td-btn td-btn-ghost text-xs py-1"
+              >
+                View Party
+              </button>
+              <button 
+                onClick={handleLeaveParty}
+                className="flex-1 td-btn text-xs py-1 bg-blood/20 border-blood/30 text-blood hover:bg-blood/30"
+              >
+                Leave
+              </button>
+            </div>
           </motion.div>
         )}
       </div>
@@ -1165,8 +1086,6 @@ export default function LandingPage() {
         </motion.p>
       </div>
 
-      {/* Prize Pool - subtle bottom right */}
-      <PrizePoolIndicator />
 
       <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
     </main>
