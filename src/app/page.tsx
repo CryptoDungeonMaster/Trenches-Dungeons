@@ -536,17 +536,31 @@ export default function LandingPage() {
   useEffect(() => {
     const validateParty = async () => {
       const savedParty = localStorage.getItem("td_party");
-      if (!savedParty) return;
+      if (!savedParty) {
+        setCurrentPartyId(null);
+        return;
+      }
+      
+      if (!publicKey) {
+        // Keep party ID but don't validate until wallet connected
+        setCurrentPartyId(savedParty);
+        return;
+      }
       
       try {
         const res = await fetch(`/api/party?id=${savedParty}`);
         const data = await res.json();
         
+        console.log("[Party] Validating party:", savedParty, data);
+        
         // If party exists and user is still a member, keep it
-        if (data.party && publicKey) {
-          const isMember = data.party.members?.some(
-            (m: { player_address: string }) => m.player_address === publicKey.toBase58()
+        if (data.party && data.party.members) {
+          const isMember = data.party.members.some(
+            (m: { address?: string; player_address?: string }) => 
+              (m.address === publicKey.toBase58()) || 
+              (m.player_address === publicKey.toBase58())
           );
+          console.log("[Party] Is member:", isMember);
           if (isMember) {
             setCurrentPartyId(savedParty);
             return;
@@ -554,9 +568,11 @@ export default function LandingPage() {
         }
         
         // Party doesn't exist or user not in it - clear localStorage
+        console.log("[Party] Not a member, clearing");
         localStorage.removeItem("td_party");
         setCurrentPartyId(null);
-      } catch {
+      } catch (err) {
+        console.error("[Party] Validation error:", err);
         // Error fetching - clear to be safe
         localStorage.removeItem("td_party");
         setCurrentPartyId(null);
@@ -848,36 +864,6 @@ export default function LandingPage() {
           <WalletButton />
         </div>
         
-        {/* Party status indicator - more prominent */}
-        {connected && currentPartyId && (
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="td-panel-elevated rounded-lg p-3 min-w-[200px]"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg">🎮</span>
-              <span className="text-gold1 font-display text-sm">Active Party</span>
-            </div>
-            <div className="text-[10px] text-text2 font-ui mb-2">
-              Code: <span className="text-text0 font-mono">{currentPartyId.slice(0, 8).toUpperCase()}</span>
-            </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setGameMode("coop")}
-                className="flex-1 td-btn td-btn-ghost text-xs py-1"
-              >
-                View Party
-              </button>
-              <button 
-                onClick={handleLeaveParty}
-                className="flex-1 td-btn text-xs py-1 bg-blood/20 border-blood/30 text-blood hover:bg-blood/30"
-              >
-                Leave
-              </button>
-            </div>
-          </motion.div>
-        )}
       </div>
 
       {/* Main content */}
@@ -1088,6 +1074,47 @@ export default function LandingPage() {
 
 
       <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
+
+      {/* Party Status - Fixed bottom left, always visible when in party */}
+      <AnimatePresence>
+        {currentPartyId && (
+          <motion.div 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="fixed bottom-4 left-4 z-50"
+          >
+            <div className="td-panel-elevated rounded-lg p-4 min-w-[220px] shadow-lg border border-venom/30">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-lg bg-venom/20 flex items-center justify-center">
+                  <span className="text-xl">🎮</span>
+                </div>
+                <div>
+                  <p className="text-venom font-display text-sm">Active Party</p>
+                  <p className="text-[10px] text-text2 font-mono">
+                    {currentPartyId.slice(0, 8).toUpperCase()}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setGameMode("coop")}
+                  className="flex-1 td-btn td-btn-primary text-xs py-2"
+                >
+                  👁️ View
+                </button>
+                <button 
+                  onClick={handleLeaveParty}
+                  className="flex-1 td-btn text-xs py-2 bg-blood/20 border border-blood/40 text-blood hover:bg-blood/30"
+                >
+                  🚪 Leave
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
