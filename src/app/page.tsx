@@ -275,17 +275,30 @@ export default function LandingPage() {
         return;
       }
 
-      const playerATA = await getAssociatedTokenAddress(TOKEN_MINT, publicKey);
+      // Find the player's actual token account (not just the standard ATA)
+      const playerAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+        mint: TOKEN_MINT,
+      });
+
+      if (playerAccounts.value.length === 0) {
+        throw new Error("No TND tokens found in your wallet.");
+      }
+
+      // Use the first token account that has this mint
+      const playerTokenAccount = playerAccounts.value[0].pubkey;
+      const tokenInfo = playerAccounts.value[0].account.data.parsed.info;
+      const tokenDecimals = tokenInfo.tokenAmount.decimals || 6;
+
+      console.log("[Entry] Player token account:", playerTokenAccount.toBase58());
+      console.log("[Entry] Token balance:", tokenInfo.tokenAmount.uiAmount);
+
+      // Get treasury ATA
       const treasuryATA = await getAssociatedTokenAddress(TOKEN_MINT, TREASURY_WALLET);
 
-      const playerAccount = await connection.getAccountInfo(playerATA);
-      if (!playerAccount) throw new Error("You don't have a TND token account.");
-
-      const treasuryAccount = await connection.getAccountInfo(treasuryATA);
-      if (!treasuryAccount) throw new Error("Treasury not set up. Contact support.");
-
-      const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, decimals));
-      const transaction = new Transaction().add(createTransferInstruction(playerATA, treasuryATA, publicKey, transferAmount, [], TOKEN_PROGRAM_ID));
+      const transferAmount = BigInt(ENTRY_FEE * Math.pow(10, tokenDecimals));
+      const transaction = new Transaction().add(
+        createTransferInstruction(playerTokenAccount, treasuryATA, publicKey, transferAmount, [], TOKEN_PROGRAM_ID)
+      );
 
       const { blockhash } = await connection.getLatestBlockhash("confirmed");
       transaction.recentBlockhash = blockhash;
@@ -311,7 +324,7 @@ export default function LandingPage() {
     } finally {
       setIsProcessing(false);
     }
-  }, [publicKey, connected, isFreeEntry, balance, decimals, connection, sendTransaction, router, refreshBalance]);
+  }, [publicKey, connected, isFreeEntry, balance, connection, sendTransaction, router, refreshBalance]);
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-bg0">
