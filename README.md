@@ -1,5 +1,7 @@
 # ⚔️ Trenches & Dragons
 
+> *"Enter the darkness. Claim your glory."*
+
 A browser-based dungeon crawler / D&D-lite session game powered by Solana. Players pay with SPL tokens to enter dungeons and can claim rewards upon completion.
 
 ![Trenches & Dragons](https://img.shields.io/badge/Solana-Powered-9945FF?style=flat-square)
