@@ -77,7 +77,8 @@ function DungeonGate({ canEnter, isProcessing, connected, onClick, onConnect }: 
     if (isProcessing) return;
     if (!connected) {
       onConnect();
-    } else if (canEnter) {
+    } else {
+      // Always show mode selection when connected (even without TND)
       onClick();
     }
   };
