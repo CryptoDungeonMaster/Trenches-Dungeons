@@ -434,9 +434,34 @@ export default function LandingPage() {
   const [error, setError] = useState<string | null>(null);
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const [showModeSelect, setShowModeSelect] = useState(false);
+  const [currentPartyId, setCurrentPartyId] = useState<string | null>(null);
 
   const isFreeEntry = publicKey ? hasFreeEntry(publicKey.toBase58()) : false;
   const canEnter = connected && (isFreeEntry || balance >= ENTRY_FEE);
+
+  // Check for existing party on mount
+  useEffect(() => {
+    const savedParty = localStorage.getItem("td_party");
+    if (savedParty) {
+      setCurrentPartyId(savedParty);
+    }
+  }, []);
+
+  const handleLeaveParty = async () => {
+    if (!currentPartyId || !publicKey) return;
+    try {
+      await fetch("/api/party", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ partyId: currentPartyId, action: "leave", player: publicKey.toBase58() }),
+      });
+    } catch (e) {
+      console.error("Failed to leave party:", e);
+    }
+    localStorage.removeItem("td_party");
+    setCurrentPartyId(null);
+    setGameMode(null);
+  };
 
   const handleConnectWallet = useCallback(() => {
     setWalletModalVisible(true);
@@ -582,21 +607,40 @@ export default function LandingPage() {
       <EmberParticles />
 
       {/* Top-right controls */}
-      <div className="fixed top-4 right-4 z-40 flex items-center gap-3">
-        {connected && (
-          <div className="flex items-center gap-2 px-4 py-2 td-panel rounded-lg">
-            <span className="text-text2 text-sm font-ui">TND</span>
-            {balanceLoading ? (
-              <span className="text-text2">...</span>
-            ) : (
-              <span className="text-gold1 font-display font-bold">{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-            )}
-          </div>
+      <div className="fixed top-4 right-4 z-40 flex flex-col items-end gap-2">
+        <div className="flex items-center gap-3">
+          {connected && (
+            <div className="flex items-center gap-2 px-4 py-2 td-panel rounded-lg">
+              <span className="text-text2 text-sm font-ui">TND</span>
+              {balanceLoading ? (
+                <span className="text-text2">...</span>
+              ) : (
+                <span className="text-gold1 font-display font-bold">{balance.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+              )}
+            </div>
+          )}
+          <button onClick={() => setShowLeaderboard(true)} className="td-btn td-btn-ghost text-sm">
+            🏆
+          </button>
+          <WalletButton />
+        </div>
+        
+        {/* Party status indicator */}
+        {connected && currentPartyId && (
+          <motion.div 
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="flex items-center gap-2 px-3 py-2 td-panel rounded-lg"
+          >
+            <span className="text-venom text-xs font-ui">🎮 In Party</span>
+            <button 
+              onClick={handleLeaveParty}
+              className="text-blood text-xs font-ui hover:text-blood/80 underline"
+            >
+              Leave
+            </button>
+          </motion.div>
         )}
-        <button onClick={() => setShowLeaderboard(true)} className="td-btn td-btn-ghost text-sm">
-          🏆
-        </button>
-        <WalletButton />
       </div>
 
       {/* Main content */}
@@ -764,7 +808,7 @@ export default function LandingPage() {
         )}
 
         {/* Features */}
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="flex flex-wrap justify-center gap-4 mt-12">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }} className="flex flex-wrap justify-center gap-4 mt-12 mb-6">
           {[
             { icon: "⚔️", title: "Strategic Combat", desc: "Dice-based battles" },
             { icon: "📜", title: "Branching Story", desc: "Your choices matter" },
@@ -785,11 +829,16 @@ export default function LandingPage() {
             </motion.div>
           ))}
         </motion.div>
-      </div>
 
-      {/* Footer */}
-      <div className="absolute bottom-4 left-0 right-0 text-center z-10">
-        <p className="text-text2/40 text-xs font-ui">© 2026 Trenches & Dragons • Powered by Solana</p>
+        {/* Footer - now part of the flow, not absolute */}
+        <motion.p 
+          initial={{ opacity: 0 }} 
+          animate={{ opacity: 1 }} 
+          transition={{ delay: 1.4 }}
+          className="text-text2/40 text-xs font-ui mt-8 pb-6"
+        >
+          © 2026 Trenches & Dragons • Powered by Solana
+        </motion.p>
       </div>
 
       <AnimatePresence>{showLeaderboard && <LeaderboardModal isOpen={showLeaderboard} onClose={() => setShowLeaderboard(false)} />}</AnimatePresence>
